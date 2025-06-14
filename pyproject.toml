@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "imgseg"
+version = "0.1.0"
+description = "FastAPI wrapper for BRIA RMBG-2.0 background-removal model"
+authors = ["Suhail suhailece@gmail.com"]
+packages = [{ include = "imgseg", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10, <4.0"
+torch = "*"
+torchvision = "*"
+pillow = "*"
+kornia = "*"
+transformers = "*"
+fastapi = "^0.111"
+uvicorn = { extras = ["standard"], version = "^0.29" }
+huggingface-hub = "*"
+python-multipart = "*"
+tqdm = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

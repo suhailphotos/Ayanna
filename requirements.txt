@@ -1,0 +1,13 @@
+# core model deps (from the HF model card)
+torch>=2.2
+torchvision
+pillow
+kornia
+transformers
+
+# serving & tooling
+fastapi
+uvicorn[standard]
+python-multipart      # file upload support
+huggingface-hub
+tqdm

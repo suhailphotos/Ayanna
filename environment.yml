@@ -1,0 +1,12 @@
+name: imgseg
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - nvidia::cuda-toolkit=12.6
+  - pip
+  # optionally add:
+  # - nvidia::cuda-compat=12.6
+
