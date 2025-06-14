@@ -63,10 +63,15 @@ docker compose up -d  # API runs on :8000
 ### Local Dev (Conda + Poetry)
 
 ```bash
-mamba env create -f environment.yml
+# create or re-create the env
+conda env create -f environment.yml    # or `conda env update -f …` to update
+
+# activate
 conda activate imgseg
-poetry install
-poetry run uvicorn imgseg.app.main:app --reload
+
+# install project deps into that env via Poetry
+poetry config virtualenvs.create false
+poetry install --no-interaction
 ```
 
 ---
