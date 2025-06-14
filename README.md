@@ -23,9 +23,9 @@ ayanna/                  # root clone of the repository
 ├── pyproject.toml       # defines the `ayanna` package
 └── README.md            # this file
 
-# Example subproject worktree layout:
+# Example subproject worktree layout (imgSeg project):
 # imgSeg/               # worktree for branch `imgSeg`
-# ├── README.md
+# ├── README.md         # subproject-specific README
 # ├── data/
 # ├── docker/
 # ├── notebooks/
@@ -33,7 +33,7 @@ ayanna/                  # root clone of the repository
 # └── ...
 ```
 
-## Getting Started
+## Getting Started (Root)
 
 ### 1. Clone the repository
 
@@ -82,5 +82,3 @@ cd ../<projectName>
 * **Subprojects**: Package or Dockerize as needed within their worktree.
 
 ---
-
-*Last updated: 2025-06-14*
