@@ -26,6 +26,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# .DS_Store
+.DS_Store
+._.DS_Store
+.bash_history
+
 # Ignore large data, models, and experiment outputs
 data/raw/
 data/processed/
