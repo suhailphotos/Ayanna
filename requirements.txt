@@ -11,3 +11,4 @@ uvicorn[standard]
 python-multipart      # file upload support
 huggingface-hub
 tqdm
+timm

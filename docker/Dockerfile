@@ -7,9 +7,10 @@ ARG UID=1000
 ENV POETRY_VERSION=1.8.2 \
     HF_HOME=/workspace/.cache/huggingface \
     DEBIAN_FRONTEND=noninteractive \
-    TZ=Etc/UTC
+    TZ=Etc/UTC \
+    HOME=/workspace
 
-# ── system deps, Poetry, non-root user ──────────────────────────
+# System deps, Poetry, non-root user
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3-pip git curl tzdata && \
@@ -17,7 +18,6 @@ RUN apt-get update && \
     useradd -m -u $UID -s /bin/bash imgseg && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ── project install ─────────────────────────────────────────────
 WORKDIR /workspace
 
 COPY pyproject.toml poetry.lock* ./
@@ -25,8 +25,9 @@ RUN poetry config virtualenvs.create false && \
     poetry install --no-root --no-interaction --no-ansi
 
 COPY src ./src
+RUN mkdir -p /workspace/.cache/huggingface && chown -R imgseg:imgseg /workspace
 ENV PYTHONPATH=/workspace/src
 
-# ── runtime ─────────────────────────────────────────────────────
 USER imgseg
 CMD ["uvicorn", "imgseg.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+

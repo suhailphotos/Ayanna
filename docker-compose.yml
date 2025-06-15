@@ -1,1 +1,21 @@
+services:
+  imgseg:
+    image: suhailphotos/imgseg:0.1 
+    container_name: imgseg
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_TOKEN=${HF_TOKEN:-""}
+    volumes:
+      - ${NEBULA_AI_DATASETS}:/workspace/data
+      - ${NEBULA_AI_MODELS}/huggingface:/workspace/.cache/huggingface
+      - ${NEBULA_AI_MODELS}/custom:/workspace/models
+    networks:
+      - everest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
 
+networks:
+  everest:
+    external: true

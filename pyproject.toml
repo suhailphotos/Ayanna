@@ -17,6 +17,7 @@ uvicorn = { extras = ["standard"], version = "^0.29" }
 huggingface-hub = "*"
 python-multipart = "*"
 tqdm = "*"
+timm = "*"
 
 [build-system]
 requires = ["poetry-core"]

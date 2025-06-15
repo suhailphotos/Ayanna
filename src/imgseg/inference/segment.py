@@ -1,5 +1,6 @@
 from pathlib import Path
 from PIL import Image
+import os
 import torch
 from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
@@ -15,7 +16,7 @@ _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # One-time model load
 _model = (
     AutoModelForImageSegmentation
-    .from_pretrained(_MODEL_ID, trust_remote_code=True)
+    .from_pretrained(_MODEL_ID, trust_remote_code=True, use_auth_token=os.getenv("HF_TOKEN"))
     .to(_DEVICE)
     .eval()
 )

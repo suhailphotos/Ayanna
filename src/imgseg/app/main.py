@@ -14,13 +14,17 @@ def health():
 
 @app.post("/segment")
 async def segment(file: UploadFile = File(...)):
-    """Accept an image, return path to alpha-matted PNG (on disk for now)."""
-    with NamedTemporaryFile(suffix=".png") as tmp:
-        tmp.write(await file.read())
-        tmp.flush()
+    try:
+        with NamedTemporaryFile(suffix=".png") as tmp:
+            tmp.write(await file.read())
+            tmp.flush()
 
-        result_img = remove_bg(Path(tmp.name))
-        out_path = Path("/tmp") / f"no_bg_{file.filename}"
-        result_img.save(out_path)
+            result_img = remove_bg(Path(tmp.name))
+            out_path = Path("/tmp") / f"no_bg_{Path(file.filename).stem}.png"
+            result_img.save(out_path)
 
-        return {"result": str(out_path)}
+            return {"result": str(out_path)}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
