@@ -1,75 +1,99 @@
-# imgSeg — Modular Image Segmentation API (RMBG-2.0)
+# imgSeg — Modular Image Segmentation API (BRIA RMBG-2.0)
 
-**imgSeg** is a modular, container-ready API for background removal and image segmentation. The project wraps BRIA RMBG-2.0 as a FastAPI service and is designed for plug-and-play support of additional models.
+**imgSeg** is a production-ready, containerized API for image background removal using the [BRIA RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0) model (Hugging Face, gated access). Designed for VFX, post-production, and creative automation workflows.
 
-> **This project is a submodule of the [Ayanna](https://github.com/suhailece/ayanna) workspace. All stable packages are published via the Ayanna main branch. Each subproject (like imgSeg) lives on its own worktree branch for isolated development and experimentation.**
-
----
-
-## Project Objective
-
-* Provide a production-ready, API-first template for deploying and experimenting with image segmentation/matting models
-* Structure the codebase for easy extension to new models (future: "plug and run")
-* Serve as an example for organizing research/deployment code in an ML platform context (Ayanna)
-* Fully reproducible and portable (Docker, Poetry, Conda)
+> This project is part of the [Ayanna](https://github.com/suhailece/ayanna) platform, structured for easy extension and plug-and-play support of additional models.
 
 ---
 
-## Folder Structure
+## Features
+
+* **API-first:** Deployable as a FastAPI microservice (Docker or Conda/Poetry)
+* **Plug-and-Play:** Modular design to swap or fine-tune segmentation/matting models
+* **GPU-ready:** Optimized for NVIDIA CUDA environments
+* **Reproducible:** All dependencies and environments are fully specified
+* **Demonstrates:** Practical model integration for production pipelines in VFX/data-centric teams
+
+---
+
+## Model Details
+
+* **Default model:** [BRIA RMBG-2.0 (Hugging Face)](https://huggingface.co/briaai/RMBG-2.0)
+* **Note:** This model is **gated**—you must request permission on Hugging Face and set your `HF_TOKEN` in `.env` for access.
+* **Fine-tuning:** The framework supports adding your own checkpoints and fine-tuning via `src/imgseg/train/`.
+
+---
+
+## Project Layout
 
 ```
 imgSeg/
-├── README.md                # this file
-├── data/                    # datasets (raw, processed)
+├── data/           # Datasets (not required for inference)
 │   ├── processed/
 │   └── raw/
 ├── docker/
-│   ├── .dockerignore
 │   └── Dockerfile
-├── docker-compose.yml       # (future: multi-service setups)
-├── environment.yml          # Conda environment for GPU dev
-├── models/                  # pre-trained/fine-tuned model weights
+├── docker-compose.yml
+├── environment.yml
+├── images/         # Input/output test images (not used by API)
+├── models/         # Model weights/checkpoints
 │   └── rmbg2.0/
-├── notebooks/               # research, model analysis, quick tests
-├── poetry.lock
-├── pyproject.toml           # Poetry project configuration
-├── requirements.txt         # pip requirements (for Docker/CI)
-├── scripts/                 # utility scripts (future: data, eval, etc.)
-└── src/
-    └── imgseg/              # project code (import as ayanna.imgseg or imgseg)
-        ├── __init__.py
-        ├── app/             # FastAPI app
-        │   └── main.py
-        ├── inference/       # model inference wrappers
-        │   └── segment.py
-        └── train/           # training/fine-tuning logic
-            └── train.py
+├── notebooks/      # Research & analysis
+├── src/
+│   └── imgseg/
+│       ├── app/
+│       │   └── main.py         # FastAPI app
+│       ├── inference/
+│       │   └── segment.py      # Model loading/inference
+│       └── train/
+│           └── train.py        # Fine-tuning entrypoint (stub)
+├── tests/          # Example/test clients
+│   └── rmBg.py     # Example: remote API call
+├── .env            # Secrets (.gitignored): Hugging Face token, model/data paths
+├── requirements.txt
+├── pyproject.toml
+└── README.md
 ```
+
+* **Model files/cache** are mounted into the container using Docker Compose, typically at `/mnt/ai/models` (see `docker-compose.yml` for overrides).
+* **Results**: The API streams output PNGs; no files persist inside the container.
 
 ---
 
 ## Quick Start
 
-### GPU Host (Docker)
+### **1. Setup**
 
-```bash
+**Clone and configure:**
+
+```sh
 git clone git@github.com:suhailece/ayanna.git
 cd ayanna
 git worktree add -b imgSeg ../imgSeg origin/main
 cd ../imgSeg
-docker compose up -d  # API runs on :8000
+
+# .env example (see below)
+cp .env.example .env
+# Edit your HF_TOKEN in .env after requesting model access on Hugging Face
 ```
 
-### Local Dev (Conda + Poetry)
+**Edit `.env` for your Hugging Face token:**
 
-```bash
-# create or re-create the env
-conda env create -f environment.yml    # or `conda env update -f …` to update
+```
+HF_TOKEN=hf_xxx...
+```
 
-# activate
+### **2. Build and Run (Docker)**
+
+```sh
+docker compose up -d  # API available on port 8000
+```
+
+### **3. Local Dev (Conda + Poetry)**
+
+```sh
+conda env create -f environment.yml
 conda activate imgseg
-
-# install project deps into that env via Poetry
 poetry config virtualenvs.create false
 poetry install --no-interaction
 ```
@@ -78,57 +102,66 @@ poetry install --no-interaction
 
 ## API Usage
 
-* **GET /health** — status check
-* **POST /segment** — accepts an image file (PNG/JPEG) via `form-data` field `file`, returns a JSON path to the alpha-matted PNG result.
+* **GET `/health`** — quick status check (`{"status": "ok"}`)
+* **POST `/segment`** — send an image (`file` in `form-data`), receive a processed PNG (alpha-matted, streamed directly).
 
-Example request:
+**Example:**
 
-```bash
-curl -F "file=@image.jpg" http://localhost:8000/segment
+```sh
+curl -F "file=@/path/to/image.jpg" http://localhost:8000/segment --output no_bg_image.png
 ```
 
-Example response:
+**Python client example (see `tests/rmBg.py`):**
 
-```json
-{ "result": "/tmp/no_bg_image.jpg" }
-```
+```python
+import os, requests, sys
 
----
+api_url = "http://<host>:8000/segment"
+image_path = os.path.expanduser("~/Desktop/your.jpg")
+output_path = os.path.expanduser("~/Desktop/no_bg_your.png")
 
-## CI & Publishing Cheat Sheet
-
-| Goal                    | Command                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| **Update dependencies** | `poetry add opencv-python` *(writes lock)*                                       |
-| **Freeze requirements** | `poetry export -f requirements.txt -o requirements.txt --without-hashes`         |
-| **Build & push Docker** | `docker build -t suhailece/imgseg:0.2 -f docker/Dockerfile . && docker push ...` |
-| **Publish to PyPI**     | `poetry build && poetry publish`                                                 |
-
-Minimal GitHub Actions snippet:
-
-```yaml
-- uses: actions/checkout@v4
-- uses: conda-incubator/setup-miniconda@v3
-  with:
-    environment-file: environment.yml
-    activate-environment: imgseg
-- run: pip install poetry
-- run: poetry install --no-root
-- run: poetry run pytest         # (add tests when ready)
-- run: docker build -t suhailece/imgseg:${{ github.sha }} -f docker/Dockerfile .
-- run: echo ${{ secrets.DOCKER_PWD }} | docker login -u suhailece --password-stdin
-- run: docker push suhailece/imgseg:${{ github.sha }}
+with open(image_path, "rb") as f:
+    files = {"file": (os.path.basename(image_path), f, "image/jpeg")}
+    response = requests.post(api_url, files=files)
+    if response.ok and response.headers.get("content-type", "").startswith("image/png"):
+        with open(output_path, "wb") as out:
+            out.write(response.content)
 ```
 
 ---
 
-## Development Status
+## Fine-tuning / Training
 
-* **Current phase:** In development / research.
-* **Goal:** Make segmentation model plug-and-play, standardize serving workflow, and provide example fine-tuning pipelines.
-* **Namespace:** To be published as `ayanna.imgseg` once stable.
+* **Fine-tuning code** is stubbed in `src/imgseg/train/train.py`
+* Designed to integrate PEFT/LoRA or custom pipelines.
+* Place your custom models or weights in `models/` and update `inference/segment.py` as needed.
 
 ---
 
-*For more context, see the Ayanna root README or open an issue to discuss ML deployment standards.*
+## Environment & Model Storage
+
+* **Default model cache**: `/mnt/ai/models/huggingface` (see `.env` and `docker-compose.yml`)
+* All environment variables are managed via `.env` (never commit secrets).
+* **You may need to adjust data/model paths** for your setup.
+
+---
+
+## Security & Access
+
+* Model download requires a Hugging Face account **with permission for [BRIA RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)**
+* API requires no authentication for local/network use by default; add auth middleware for production.
+
+---
+
+## TL;DR
+
+* **imgSeg** is a plug-and-play FastAPI microservice for background removal using [BRIA RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)
+* Built for VFX/AI pipelines: ready to fine-tune, swap models, or serve as a template
+* Requires gated Hugging Face access and a valid token in `.env`
+* Runs on Docker (preferred) or locally with Conda/Poetry
+* See `tests/rmBg.py` for end-to-end API example
+
+---
+
+*For integration questions or to discuss ML deployment best practices, open an issue or contact via the main Ayanna repo.*
 

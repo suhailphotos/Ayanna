@@ -1,6 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks
+from fastapi.responses import FileResponse
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from uuid import uuid4
 
 from ..inference.segment import remove_bg
 
@@ -13,17 +15,30 @@ def health():
 
 
 @app.post("/segment")
-async def segment(file: UploadFile = File(...)):
+async def segment(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+):
     try:
-        with NamedTemporaryFile(suffix=".png") as tmp:
+        # Save upload to temp file
+        with NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             tmp.write(await file.read())
             tmp.flush()
+            temp_path = tmp.name
 
-            result_img = remove_bg(Path(tmp.name))
-            out_path = Path("/tmp") / f"no_bg_{Path(file.filename).stem}.png"
-            result_img.save(out_path)
+        # Process and save result as PNG to another temp file
+        out_path = f"/tmp/no_bg_{uuid4().hex}.png"
+        result_img = remove_bg(Path(temp_path))
+        result_img.save(out_path, format="PNG")
 
-            return {"result": str(out_path)}
+        import os
+        os.remove(temp_path)  # Remove uploaded temp file immediately
+
+        # Schedule output PNG for deletion after response is sent
+        if background_tasks is not None:
+            background_tasks.add_task(os.remove, out_path)
+
+        return FileResponse(out_path, media_type="image/png", filename="no_bg.png")
     except Exception as e:
         import traceback
         traceback.print_exc()
