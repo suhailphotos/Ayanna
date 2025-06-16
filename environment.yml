@@ -1,0 +1,17 @@
+name: posed
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - mediapipe
+      - fastapi
+      - uvicorn[standard]
+      - opencv-python
+      - numpy
+      - pillow
+      - python-multipart   # file upload support
+      # Optional (if you plan to use notebooks)
+      - jupyter
