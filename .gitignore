@@ -6,6 +6,18 @@ __pycache__/
 # C extensions
 *.so
 
+# .DS_Store
+.DS_Store
+
+# Ignore large data, models, and experiment outputs
+data/raw/
+data/processed/
+models/
+outputs/
+logs/
+checkpoints/
+weights/
+
 # Distribution / packaging
 .Python
 build/
