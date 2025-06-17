@@ -1,126 +1,129 @@
-# Ayanna
+# PoseD – MediaPipe‑powered Pose Detection API
 
-Ayanna is a modular machine learning platform designed for scalable research, clean reproducibility, and robust deployment. It combines shared utilities with independent, production-ready machine learning projects—each developed in its own Git worktree branch.
+![screenshot](images/sample.jpg)
 
-## Objective
+**PoseD** is a tiny FastAPI service that turns Google MediaPipe (and, in the future, other frameworks) into a web‑friendly API. Upload a clip, choose your output flavour, and receive either:
 
-* Provide a **plug-and-play workspace** for modern ML research and deployment.
-* Enable each subproject (e.g., `imgSeg`) to evolve independently and be published under a shared Ayanna namespace (`ayanna.imgseg`, `ayanna.foo`, etc).
-* Make it easy to add, develop, and maintain a family of ML models/services without dependency hell.
+* **Landmarks overlaid** on the original video (MP4)
+* **Transparent overlay** only (ProRes 4444 MOV)
+* **Both** overlay + per‑frame JSON coordinates in a single multipart response
 
-## Why Worktrees?
+> 🖥️ A quick demo of the transparent overlay on top of an HDR clip in DaVinci Resolve Studio: [https://youtu.be/PRFPsGsc\_hY](https://youtu.be/PRFPsGsc_hY)
 
-Worktrees allow you to:
+---
 
-* Develop each ML project in its own branch and directory, with totally separate dependencies, notebooks, Docker setups, etc.
-* Merge or publish only the stable parts (e.g., via the `main` branch) while letting experimental code live in its own worktree.
-* Easily add or remove subprojects as your platform evolves.
+## Project layout
 
-## Repository Structure
-
-```
-ayanna/                  # main clone of Ayanna
-├── data/                # shared data resources
-├── docs/                # shared documentation
-├── src/
-│   └── ayanna/          # core utilities and shared modules
-├── tests/               # core/test suite
-├── .gitignore
-├── pyproject.toml       # defines the ayanna root package
-└── README.md            # this file
-
-# Example: subproject worktree layout (imgSeg)
-imgSeg/                  # checked out as its own worktree/branch
-├── README.md
-├── data/
-├── docker/
-├── notebooks/
-├── src/imgseg/
-└── ...
+```text
+poseD/
+├── data/               ← sample input & result clips
+├── docker/             ← Dockerfile + ignore
+├── models/mediapipe/   ← pose_landmarker_heavy.task (mount read‑only)
+├── src/posed/
+│   ├── app/main.py     ← FastAPI entry‑point
+│   └── inference/poseDetect.py
+└── docker-compose.yml
 ```
 
 ---
 
-## Getting Started: Worktree Workflow
-
-### 1. Clone the Root Repository
+## Quick start (Python environment)
 
 ```bash
-git clone git@github.com:suhailece/ayanna.git
-cd ayanna
+# 1 clone
+git clone https://github.com/suhailphotos/Ayanna.git -b poseD
+cd Ayanna
+
+# 2 Conda + Poetry (recommended)
+conda env create -f environment.yml      # installs Python 3.11 + deps
+conda activate posed
+poetry config virtualenvs.create false   # install into conda env
+poetry install --no-interaction
+
+# 3 run the API
+uvicorn posed.app.main:app --reload --port 8000
 ```
 
-### 2. Install Core Dependencies
+Open [http://localhost:8000/docs](http://localhost:8000/docs) for interactive Swagger UI.
+
+### Example request
 
 ```bash
-poetry install
-# or
-pip install -e .
+curl -X POST "http://localhost:8000/pose?mode=overlay" \
+     -F "file=@data/raw/videos/ana_sdr.mp4" \
+     --output ana_sdr_pose_overlay.mp4
 ```
 
-### 3. Create a New Worktree Branch for a Subproject
-
-```bash
-git worktree add -b <projectBranch> ../<projectName> origin/main
-cd ../<projectName>
-```
-
-* Example: `git worktree add -b imgSeg ../imgSeg origin/main`
-* This creates a new directory (`imgSeg/`) for a branch called `imgSeg` with its own isolated working tree.
-
-### 4. Populate or Develop the Subproject
-
-* Add or copy your ML project files, install dependencies (Poetry, Conda, Docker, etc) as needed.
-* Structure and naming should match the main repo, but the codebase is independent (keeps experiments and dependencies clean).
-* Example subproject namespaces: `ayanna.imgseg`, `ayanna.foo`, etc.
-
-### 5. Commit and Push
-
-```bash
-git add .
-git commit -m "Initial commit for <projectName>"
-git push -u origin <projectBranch>
-```
-
-### 6. Workflow Tips
-
-* **Core/utility changes** go in `/src/ayanna/` on the `main` branch.
-* **Project-specific work** happens in its own branch/directory.
-* Only stable, published code lives on the `main` branch—use it as the source of truth for production releases (e.g., for PyPI: `ayanna.imgseg`).
+* `mode=overlay` ⟶ MP4 with skeleton lines
+* `mode=transparent` ⟶ ProRes 4444 MOV with alpha
+* `mode=both` ⟶ multipart response containing `pose_overlay.mov` **and** `landmarks.json`
 
 ---
 
-## Example: Adding Another Project
+## Quick start (Docker)
 
-To add a new ML project called `foo`:
+> **Image:** `suhailphotos/posed:latest`
 
 ```bash
-git worktree add -b foo ../foo origin/main
-cd ../foo
-# Add files, develop, commit, push as above.
+# pull & run
+mkdir -p outputs  # only if you want to mount a writeable dir
+
+docker run --rm -p 8000:8000 \
+  --name posed \
+  --network everest \
+  -v $(pwd)/models:/models:ro \
+  suhailphotos/posed:latest
 ```
 
-## Cleaning Up Worktrees
+Or with the bundled **docker‑compose.yml**:
 
 ```bash
-git worktree remove ../imgSeg
-# Optionally delete the branch (if merged)
-git branch -d imgSeg
+docker compose up -d    # builds or pulls & starts the container
 ```
 
 ---
 
-## Development Status
+## Features
 
-* **Ayanna** is under active development as a platform for plug-and-play ML projects.
-* Each subproject (e.g., `imgSeg`) is expected to be modular and API-first. Future releases will standardize on a common interface.
-* See subproject READMEs for usage, API endpoints, and configuration.
+| Mode                  | What you get                                 | Typical use‑case                                |
+| --------------------- | -------------------------------------------- | ----------------------------------------------- |
+| **overlay** (default) | Original video + landmarks drawn (MP4/H.264) | Quick visual QA                                 |
+| **transparent**       | RGBA overlay only (ProRes 4444 MOV)          | Compositing over HDR / colour‑managed timelines |
+| **both**              | Multipart: overlay MOV + `landmarks.json`    | Further ML analysis / motion graphics           |
+
+### Landmarks.json format
+
+```json
+[
+  [  # frame 0
+    [0.3284, 0.3021, 0.0127, 0.99],
+    …
+  ],
+  [  # frame 1
+    [0.3290, 0.3017, 0.0128, 0.99],
+    …
+  ]
+]
+```
+
+*`[x, y, z, visibility]` for each of the 33 MediaPipe pose points.*
 
 ---
 
-## License & Contributions
+## Important source files
 
-* Contributions welcome! Open issues or PRs for bugs, improvements, or new projects.
+* **FastAPI router** – [https://github.com/suhailphotos/Ayanna/blob/poseD/src/posed/app/main.py](https://github.com/suhailphotos/Ayanna/blob/poseD/src/posed/app/main.py)
+* **Video‑side inference** – [https://github.com/suhailphotos/Ayanna/blob/poseD/src/posed/inference/poseDetect.py](https://github.com/suhailphotos/Ayanna/blob/poseD/src/posed/inference/poseDetect.py)
+* **Container recipe** – [`docker/Dockerfile`](docker/Dockerfile)
+* **Runtime orchestration** – [`docker-compose.yml`](docker-compose.yml)
 
-*Last updated: 2025-06-14*
+---
+
+## Extending
+
+* Add new models under `models/<framework>/…` and update `POSE_MODEL` env‑var.
+* `poseDetect.py` is framework‑agnostic – swap the detector to plug in ONNX or TensorRT.
+* Separate **/train** stub included for future fine‑tuning scripts.
+
+Pull requests welcome ✨
 
