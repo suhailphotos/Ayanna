@@ -7,16 +7,17 @@ from posed.mediapipe.draw import (
     draw_transparent_landmarks,
 )
 
-def _encode_qtrle(frame_dir: pathlib.Path, fps: int, size: tuple[int,int]) -> bytes:
-    """Feed a PNG sequence to ffmpeg and return MOV bytes with alpha (qtrle)."""
+def _encode_prores(frame_dir: pathlib.Path, fps: int) -> bytes:
+    """PNG-> ProRes 4444 MOV (10-bit + alpha, NLE-friendly)."""
     tmp_mov = frame_dir / f"{uuid.uuid4()}.mov"
     cmd = [
         "ffmpeg",
         "-y",
         "-framerate", str(fps),
         "-i", str(frame_dir / "f_%06d.png"),
-        "-c:v", "qtrle",
-        "-pix_fmt", "argb",
+        "-c:v", "prores_ks",
+        "-profile:v", "4",          # 4444 XQ
+        "-pix_fmt", "yuva444p10le", # RGBA, 10-bit
         str(tmp_mov),
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -81,7 +82,7 @@ def process_video(
         cap.release()
 
         if mode == "transparent":
-            out_mem.write(_encode_qtrle(png_dir, fps, (w, h)))
+            out_mem.write(_encode_prores(png_dir, fps))
             shutil.rmtree(png_dir, ignore_errors=True)
         else:
             with open(tmp_out.name, "rb") as f_vid:

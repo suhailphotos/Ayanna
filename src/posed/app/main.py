@@ -57,5 +57,5 @@ def _multipart_stream(video_bytes: bytes, json_str: str, boundary: str):
         f"Content-Type: application/json\r\n"
         f"Content-Disposition: attachment; filename=\"landmarks.json\"\r\n\r\n"
         f"{json_str}\r\n"
-        f"--{boundary}--"
+        f"--{boundary}--\r\n"
     ).encode()
