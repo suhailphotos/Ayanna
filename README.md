@@ -8,7 +8,7 @@
 * **Transparent overlay** only (ProRes 4444 MOV)
 * **Both** overlay + per‑frame JSON coordinates in a single multipart response
 
-> 🖥️ A quick demo of the transparent overlay on top of an HDR clip in DaVinci Resolve Studio: [https://youtu.be/PRFPsGsc\_hY](https://youtu.be/PRFPsGsc_hY)
+> 🖥️ A quick demo of the transparent overlay on top of an HDR clip in DaVinci Resolve Studio: [Demo Video](https://youtu.be/PRFPsGsc_hY)
 
 ---
 
