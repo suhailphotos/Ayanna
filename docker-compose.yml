@@ -1,8 +1,6 @@
 services:
   posed:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    image: suhailphotos/posed:latest
     container_name: posed
     restart: unless-stopped
     environment:

@@ -8,34 +8,35 @@ from email.generator import BytesGenerator
 
 app = FastAPI()
 
-def build_multipart(video: bytes, json_txt: str, boundary: str | None = None) -> bytes:
-    """Return a fully-formed multipart/mixed document (as bytes) plus its boundary."""
+def build_multipart(video: bytes, json_txt: str, boundary: str | None = None) -> tuple[bytes, str]:
+    """Return (body_bytes, boundary) for multipart/mixed with correct CTE."""
     root = EmailMessage()
     root["MIME-Version"] = "1.0"
     root.set_type("multipart/mixed")
     if boundary:
-        root.set_boundary(boundary)            # FastAPI already chose one
-    boundary = root.get_boundary()             # keep for Content-Type header
+        root.set_boundary(boundary)
+    boundary = root.get_boundary()
 
-    # Part 1 – ProRes MOV
+    # --- Part 1  (video) ---
     part_mov = EmailMessage()
     part_mov.set_type("video/quicktime")
     part_mov["Content-Disposition"] = 'attachment; filename="pose_overlay.mov"'
-    part_mov.add_header("Content-Transfer-Encoding", "binary")
-    part_mov.set_payload(video)                # bytes payload, untouched
+    # DO NOT override content-transfer-encoding → stays as 'base64'
+    part_mov.set_payload(video)      # bytes → auto-base64
     root.attach(part_mov)
 
-    # Part 2 – JSON
+    # --- Part 2  (JSON) ---
     part_json = EmailMessage()
     part_json.set_type("application/json; charset=utf-8")
     part_json["Content-Disposition"] = 'attachment; filename="landmarks.json"'
-    part_json.set_payload(json_txt, "utf-8")
+    part_json.set_payload(json_txt, "utf-8")  # 8-bit text
     root.attach(part_json)
 
     buf = io.BytesIO()
     BytesGenerator(buf, mangle_from_=False, maxheaderlen=0).flatten(root)
     buf.seek(0)
     return buf.read(), boundary
+
 
 @app.get("/health", tags=["meta"])
 def health():
