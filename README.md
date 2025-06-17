@@ -97,11 +97,9 @@ docker compose up -d    # builds or pulls & starts the container
 [
   [
     [0.3284, 0.3021, 0.0127, 0.99],
-    …
   ],
   [
     [0.3290, 0.3017, 0.0128, 0.99],
-    …
   ]
 ]
 ```
