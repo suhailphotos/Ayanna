@@ -44,7 +44,7 @@ poetry install --no-interaction
 uvicorn posed.app.main:app --reload --port 8000
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) for interactive Swagger UI.
+Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for interactive Swagger UI.
 
 ### Example request
 
