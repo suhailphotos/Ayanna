@@ -1,5 +1,18 @@
+# ───── generic ─────
 .git
-*.ipynb
-data/*
-models/*
+.gitignore
+*.py[cod]
 __pycache__/
+*.log
+
+# ───── large / local only ─────
+data/
+models/          # -> mount at run–time instead
+notebooks/
+images/
+tests/
+
+# ───── editor / tooling ─────
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,20 @@
+services:
+  posed:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: posed
+    restart: unless-stopped
+    environment:
+      - POSE_MODEL=/models/mediapipe/pose_landmarker_heavy.task
+    ports:
+      - "8000:8000"
+    networks:
+      - everest
+    volumes:
+      - ./models:/models:ro      # read-only model assets
+      - ./outputs:/outputs       # only if you expose file:// destinations
+
+networks:
+  everest:
+    external: true
