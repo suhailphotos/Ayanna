@@ -9,7 +9,6 @@ from email.generator import BytesGenerator
 app = FastAPI()
 
 def build_multipart(video: bytes, json_txt: str, boundary: str | None = None) -> tuple[bytes, str]:
-    """Return (body_bytes, boundary) for multipart/mixed with correct CTE."""
     root = EmailMessage()
     root["MIME-Version"] = "1.0"
     root.set_type("multipart/mixed")
@@ -73,24 +72,4 @@ async def pose_video(
     return StreamingResponse(io.BytesIO(video_out), media_type=media_type)
 
 
-def _multipart_stream(video_bytes: bytes, json_str: str, boundary: str):
-    """Yield multipart/mixed chunks so the client receives both assets in one response
-    with filenames so any MIME-aware tool can split them out automatically."""
 
-    yield (
-        f"--{boundary}\r\n"
-        f"Content-Type: video/quicktime\r\n"
-        f"Content-Transfer-Encoding: binary\r\n"
-        f"Content-Disposition: attachment; filename=\"pose_overlay.mov\"\r\n\r\n"
-    ).encode()
-    yield video_bytes
-    # <-- ensure a clean break between parts
-    yield b"\r\n"
-    yield (
-        f"\r\n--{boundary}\r\n"
-        f"Content-Type: application/json\r\n"
-        f"Content-Transfer-Encoding: 8bit\r\n"
-        f"Content-Disposition: attachment; filename=\"landmarks.json\"\r\n\r\n"
-        f"{json_str}\r\n"
-        f"--{boundary}--\r\n"
-    ).encode()
