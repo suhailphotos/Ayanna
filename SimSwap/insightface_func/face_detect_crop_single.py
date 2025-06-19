@@ -13,6 +13,7 @@ import glob
 import os
 import os.path as osp
 import cv2
+import warnings
 from insightface.model_zoo import model_zoo
 from insightface_func.utils import face_align_ffhqandnewarc as face_align
 
@@ -61,10 +62,14 @@ class Face_detect_crop:
                 model.prepare(ctx_id)
 
     def get(self, img, crop_size, max_num=0):
-        bboxes, kpss = self.det_model.detect(img,
-                                             threshold=self.det_thresh,
-                                             max_num=max_num,
-                                             metric='default')
+        try:
+            bboxes, kpss = self.det_model.detect(img,
+                                                 threshold=self.det_thresh,
+                                                 max_num=max_num,
+                                                 metric='default')
+        except TypeError:
+            warnings.warn("InsightFace .detect() does not accept custom kwargs; using basic call.")
+            bboxes, kpss = self.det_model.detect(img)
         if bboxes.shape[0] == 0:
             return None
         # ret = []

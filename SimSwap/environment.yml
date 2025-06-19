@@ -1,0 +1,27 @@
+name: simswap
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python
+  - python=3.11
+  # Core libraries
+  - numpy
+  - pillow
+  - opencv
+  - imageio
+  - matplotlib
+  - moviepy
+  - tqdm
+  # PyTorch ecosystem (adjust 'cpu' or 'cuda' as needed)
+  - pytorch=2.7
+  - torchvision
+  - torchaudio
+  # Optional: Choose this line if you want CUDA support (edit version as needed)
+  # - pytorch-cuda=11.8
+  # Additional conda packages for compatibility
+  - pip
+  - pip:
+      # SimSwap specific requirements from PyPI if not in conda-forge
+      - insightface
+      - timm==0.5.4

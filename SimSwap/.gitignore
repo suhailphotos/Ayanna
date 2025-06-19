@@ -142,3 +142,34 @@ checkpoints/
 wandb/
 temp_results/
 output/*.*
+
+# Model and Data Folders
+arcface_model/
+checkpoints/
+parsing_model/checkpoint/
+insightface_func/models/
+models/*.pth
+models/*.tar
+models/*.onnx
+
+# Sample Videos, Images, and Output Folders
+ana/
+demo_file/
+crop_224/
+output/
+temp_results/
+MultiSpecific.ipynb
+*.mp4
+*.mov
+*.avi
+*.jpg
+*.jpeg
+*.png
+
+# Download scripts and weights
+download-weights.sh
+changes.diff
+
+# VSCode/IDE settings
+.vscode/
+.idea/
