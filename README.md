@@ -110,13 +110,13 @@ CMD ["python3", "launch.py", "--listen", "--port", "7860", "--api", "--ckpt-dir"
 From your Dockerfile folder:
 
 ```bash
-docker build --no-cache -t <yourusername>/sdwebui:cuda12.6-torch2.3-xf26 .
+docker build --no-cache -t suhailphotos/sdwebui:cuda12.6-torch2.3-xf26 .
 ```
 
 You may push your image to a registry (optional):
 
 ```bash
-docker push <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
+docker push suhailphotos/sdwebui:cuda12.6-torch2.3-xf26
 ```
 
 ---
@@ -127,8 +127,8 @@ Example `docker-compose.yml`:
 
 ```yml
 services:
-  sd-webui:
-    image: <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
+  sdwebui:
+    image: suhailphotos/sdwebui:cuda12.6-torch2.3-xf26
     container_name: sdwebui
     runtime: nvidia
     environment:
