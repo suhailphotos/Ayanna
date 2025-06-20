@@ -37,7 +37,7 @@ repo-root/
 
 ### Example Dockerfile Overview
 
-```Docker
+```yml
 FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
 
 # System dependencies
