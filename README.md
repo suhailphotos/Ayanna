@@ -1,126 +1,159 @@
-# Ayanna
+# Stable Diffusion WebUI (AUTOMATIC1111) Dockerized Setup
 
-Ayanna is a modular machine learning platform designed for scalable research, clean reproducibility, and robust deployment. It combines shared utilities with independent, production-ready machine learning projects—each developed in its own Git worktree branch.
+## Project Structure and Setup
 
-## Objective
-
-* Provide a **plug-and-play workspace** for modern ML research and deployment.
-* Enable each subproject (e.g., `imgSeg`) to evolve independently and be published under a shared Ayanna namespace (`ayanna.imgseg`, `ayanna.foo`, etc).
-* Make it easy to add, develop, and maintain a family of ML models/services without dependency hell.
-
-## Why Worktrees?
-
-Worktrees allow you to:
-
-* Develop each ML project in its own branch and directory, with totally separate dependencies, notebooks, Docker setups, etc.
-* Merge or publish only the stable parts (e.g., via the `main` branch) while letting experimental code live in its own worktree.
-* Easily add or remove subprojects as your platform evolves.
-
-## Repository Structure
+* This repository uses [git worktree](https://git-scm.com/docs/git-worktree) and [git subtree](https://git-scm.com/docs/git-subtree) to organize different branches and external codebases efficiently.
+* The AUTOMATIC1111 Stable Diffusion WebUI source is added as a **subtree** in a dedicated worktree branch (`sD`). Example layout:
 
 ```
-ayanna/                  # main clone of Ayanna
-├── data/                # shared data resources
-├── docs/                # shared documentation
-├── src/
-│   └── ayanna/          # core utilities and shared modules
-├── tests/               # core/test suite
-├── .gitignore
-├── pyproject.toml       # defines the ayanna root package
-└── README.md            # this file
+repo-root/
+├── ayanna/     # main repo (main branch)
+├── sD/        # worktree for branch 'sD'
+├── deepFake/  # worktree for branch 'deepFake'
+```
 
-# Example: subproject worktree layout (imgSeg)
-imgSeg/                  # checked out as its own worktree/branch
-├── README.md
-├── data/
-├── docker/
-├── notebooks/
-├── src/imgseg/
-└── ...
+* To add AUTOMATIC1111 as a subtree, use:
+
+  ```
+  git subtree add --prefix=auto1111 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git master --squash
+  ```
+* To pull updates from upstream AUTOMATIC1111:
+
+  ```
+  git subtree pull --prefix=auto1111 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git master --squash
+  ```
+
+---
+
+## Docker Image Build Instructions
+
+* The Dockerfile for building the Stable Diffusion WebUI image can be found at:
+
+  ```
+  <repo-root>/docker/auto1111/Dockerfile
+  ```
+
+  *(Replace `<repo-root>` with your clone location)*
+
+### Example Dockerfile Overview
+
+```
+FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
+
+# System dependencies
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+        git python3 python3-pip python3-venv python3-dev \
+        build-essential ninja-build \
+        libgl1 libc++-dev libc++abi-dev \
+        google-perftools libgoogle-perftools4 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4
+
+WORKDIR /workspace
+RUN git clone --depth 1 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
+
+# Patch pinned versions
+RUN sed -i 's/^fastapi.*$/fastapi==0.90.1/'  \
+        stable-diffusion-webui/requirements_versions.txt && \
+    sed -i 's/^pytorch_lightning.*$/pytorch_lightning==1.6.5/' \
+        stable-diffusion-webui/requirements_versions.txt && \
+    echo "timm" >> stable-diffusion-webui/requirements_versions.txt
+
+# Install python deps
+RUN python3 -m pip install --upgrade pip==24.0 wheel==0.43.0
+RUN pip install -r stable-diffusion-webui/requirements_versions.txt
+RUN pip install --no-cache-dir \
+        torch==2.3.0+cu121 torchvision==0.18.0+cu121 torchaudio==2.3.0+cu121 \
+        --index-url https://download.pytorch.org/whl/cu121
+RUN pip install --no-cache-dir xformers==0.0.26.post1
+
+# Model & output bind-mount locations
+RUN mkdir -p /models/Stable-diffusion /outputs
+VOLUME ["/models/Stable-diffusion", "/outputs"]
+
+EXPOSE 7860
+WORKDIR /workspace/stable-diffusion-webui
+CMD ["python3", "launch.py", "--listen", "--port", "7860", "--api", "--ckpt-dir", "/models/Stable-diffusion", "--xformers", "--no-half-vae"]
 ```
 
 ---
 
-## Getting Started: Worktree Workflow
+## Hardware & Software Requirements
 
-### 1. Clone the Root Repository
-
-```bash
-git clone git@github.com:suhailece/ayanna.git
-cd ayanna
-```
-
-### 2. Install Core Dependencies
-
-```bash
-poetry install
-# or
-pip install -e .
-```
-
-### 3. Create a New Worktree Branch for a Subproject
-
-```bash
-git worktree add -b <projectBranch> ../<projectName> origin/main
-cd ../<projectName>
-```
-
-* Example: `git worktree add -b imgSeg ../imgSeg origin/main`
-* This creates a new directory (`imgSeg/`) for a branch called `imgSeg` with its own isolated working tree.
-
-### 4. Populate or Develop the Subproject
-
-* Add or copy your ML project files, install dependencies (Poetry, Conda, Docker, etc) as needed.
-* Structure and naming should match the main repo, but the codebase is independent (keeps experiments and dependencies clean).
-* Example subproject namespaces: `ayanna.imgseg`, `ayanna.foo`, etc.
-
-### 5. Commit and Push
-
-```bash
-git add .
-git commit -m "Initial commit for <projectName>"
-git push -u origin <projectBranch>
-```
-
-### 6. Workflow Tips
-
-* **Core/utility changes** go in `/src/ayanna/` on the `main` branch.
-* **Project-specific work** happens in its own branch/directory.
-* Only stable, published code lives on the `main` branch—use it as the source of truth for production releases (e.g., for PyPI: `ayanna.imgseg`).
+* NVIDIA GPU (Ampere or newer recommended; 4GB+ VRAM minimum)
+* Host system drivers for CUDA 12.6
+* Docker Engine 20.10+
+* [nvidia-docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) runtime installed
+* Linux (recommended for best compatibility)
+* 8GB+ system RAM (recommended)
+* Storage for models and generated outputs
 
 ---
 
-## Example: Adding Another Project
+## Notes on Dependencies and Fixes
 
-To add a new ML project called `foo`:
+* **TCMalloc** is preloaded for lower RAM usage (see `LD_PRELOAD` in Dockerfile)
+* `libglib2.0-0` is added to support OpenCV (`cv2`) runtime dependencies
+* Pinned pip to <24.1 due to legacy metadata requirements with AUTOMATIC1111
+* Patched FastAPI and PyTorch Lightning versions for compatibility
+* **xformers** installed using version `0.0.26.post1` (required for PyTorch 2.3.x)
+* CUDA toolkit, PyTorch, and TorchAudio are installed via official NVIDIA/PyTorch wheels for cu121
 
-```bash
-git worktree add -b foo ../foo origin/main
-cd ../foo
-# Add files, develop, commit, push as above.
+---
+
+## Building the Docker Image
+
+From your Dockerfile folder:
+
+```
+docker build --no-cache -t <yourusername>/sdwebui:cuda12.6-torch2.3-xf26 .
 ```
 
-## Cleaning Up Worktrees
+You may push your image to a registry (optional):
 
-```bash
-git worktree remove ../imgSeg
-# Optionally delete the branch (if merged)
-git branch -d imgSeg
+```
+docker push <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
 ```
 
 ---
 
-## Development Status
+## Running with Docker Compose
 
-* **Ayanna** is under active development as a platform for plug-and-play ML projects.
-* Each subproject (e.g., `imgSeg`) is expected to be modular and API-first. Future releases will standardize on a common interface.
-* See subproject READMEs for usage, API endpoints, and configuration.
+Example `docker-compose.yml`:
+
+```
+services:
+  sd-webui:
+    image: <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
+    container_name: sdwebui
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - /path/to/your/models:/models/Stable-diffusion
+      - /path/to/your/outputs:/outputs
+    ports:
+      - "7860:7860"
+    networks:
+      - everest
+    restart: unless-stopped
+
+networks:
+  everest:
+    external: true
+```
+
+Replace `/path/to/your/models` and `/path/to/your/outputs` with your actual model and output directories.
 
 ---
 
-## License & Contributions
+## Connecting to Open Web UI
 
-* Contributions welcome! Open issues or PRs for bugs, improvements, or new projects.
+If you would like to access the Stable Diffusion API via Open Web UI (OpenWebUI), see [OPENWEBUI.md](./OPENWEBUI.md) for detailed instructions on integrating with your SD container.
 
-*Last updated: 2025-06-14*
+---
 
