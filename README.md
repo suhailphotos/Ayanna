@@ -14,12 +14,12 @@ repo-root/
 
 * To add AUTOMATIC1111 as a subtree, use:
 
-  ```
+  ```bash
   git subtree add --prefix=auto1111 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git master --squash
   ```
 * To pull updates from upstream AUTOMATIC1111:
 
-  ```
+  ```bash
   git subtree pull --prefix=auto1111 https://github.com/AUTOMATIC1111/stable-diffusion-webui.git master --squash
   ```
 
@@ -29,7 +29,7 @@ repo-root/
 
 * The Dockerfile for building the Stable Diffusion WebUI image can be found at:
 
-  ```
+  ```bash
   <repo-root>/docker/auto1111/Dockerfile
   ```
 
@@ -109,13 +109,13 @@ CMD ["python3", "launch.py", "--listen", "--port", "7860", "--api", "--ckpt-dir"
 
 From your Dockerfile folder:
 
-```
+```bash
 docker build --no-cache -t <yourusername>/sdwebui:cuda12.6-torch2.3-xf26 .
 ```
 
 You may push your image to a registry (optional):
 
-```
+```bash
 docker push <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
 ```
 
@@ -125,7 +125,7 @@ docker push <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
 
 Example `docker-compose.yml`:
 
-```
+```yml
 services:
   sd-webui:
     image: <yourusername>/sdwebui:cuda12.6-torch2.3-xf26
