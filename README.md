@@ -5,7 +5,7 @@
 * This repository uses [git worktree](https://git-scm.com/docs/git-worktree) and [git subtree](https://git-scm.com/docs/git-subtree) to organize different branches and external codebases efficiently.
 * The AUTOMATIC1111 Stable Diffusion WebUI source is added as a **subtree** in a dedicated worktree branch (`sD`). Example layout:
 
-```
+```bash
 repo-root/
 ├── ayanna/     # main repo (main branch)
 ├── sD/        # worktree for branch 'sD'
@@ -33,7 +33,7 @@ repo-root/
   <repo-root>/docker/auto1111/Dockerfile
   ```
 
-  *(Replace `<repo-root>` with your clone location)*
+  *(Replace `<repo-root>` with your clone location). Eg: `/mnt/ai/projects/sD/docker/auto1111/Dockerfile`*
 
 ### Example Dockerfile Overview
 
