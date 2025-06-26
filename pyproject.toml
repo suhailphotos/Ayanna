@@ -1,18 +1,19 @@
 [project]
 name = "lunarlander"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Suhail",email = "suhailece@gmail.com"}
-]
-readme = "README.md"
-requires-python = ">=3.12"
+description = "DQN (policy + target) showcase on LunarLander-v3"
+requires-python = ">=3.11"
+authors = [{name = "Suhail", email = "suhailece@gmail.com"}]
 dependencies = [
+    "torch>=2.3",
+    "gymnasium[box2d]>=0.29",
+    "numpy",
+    "tqdm",
+    "pyyaml",
 ]
 
 [tool.poetry]
 packages = [{include = "lunarlander", from = "src"}]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

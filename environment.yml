@@ -1,0 +1,16 @@
+name: lunarlander
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python =3.11
+  # core
+  - pip
+  - pytorch =2.3
+  - torchvision
+  - gymnasium[box2d] =0.29
+  - numpy
+  - pyyaml
+  - tqdm
+  - pip:
+      - torchsummary   
