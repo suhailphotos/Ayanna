@@ -13,4 +13,5 @@ dependencies:
   - pyyaml
   - tqdm
   - pip:
-      - torchsummary   
+      - torchsummary
+      - gymnasium[other]

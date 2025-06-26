@@ -1,0 +1,13 @@
+# ─────────────────────────── configs/default.yaml ────────────────────────
+gamma: 0.99
+lr: 1e-3
+epsilon_start: 1.0
+epsilon_end: 0.05
+epsilon_decay: 250000      # steps
+buffer_capacity: 100000
+batch_size: 64
+target_update_freq: 1000
+train_start: 5000
+total_steps: 1000000
+eval_every: 50000
+max_episode_len: 1000
