@@ -67,21 +67,17 @@ conda env create -f environment.yml
 conda activate lunarlander
 poetry install --no-root        # uses active Conda Python
 
-# 2 – (optional) point `models/` to the global cache
 mkdir -p "$NEBULA_AI_MODELS/custom/lunarlander"
 ln -s "$NEBULA_AI_MODELS/custom/lunarlander" models
 
-# 3 – Train for 1 M steps (~3 h on CPU, 25 min on mid‑range GPU)
 python scripts/train.py --config configs/default.yaml
 
-# 4 – Watch a trained agent (opens SDL2 window; only works on local display)
 python scripts/evaluate.py --weights models/policy_final.pt
 
-# 5 – Record MP4s for your demo reel ✨
 python scripts/evaluate.py --weights models/policy_final.pt --record
 ```
 
-### Common install pitfalls & gotchas 🩹
+### Common install pitfalls & gotchas
 
 * **Editable install fails:**
   If you run `pip install -e src` you'll get
