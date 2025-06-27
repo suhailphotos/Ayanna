@@ -199,14 +199,6 @@ A typical run converges to **≥ 200** average reward (solved) after \~750 k 
 
 ---
 
-## Background reading
-
-* Sutton & Barto — *Reinforcement Learning: An Introduction* (2nd ed.)
-* Mnih et al., 2015 — *Human‑level control through deep reinforcement learning*
-* OpenAI Spinning‑Up — excellent practical guides
-
----
-
 ## License
 
 [MIT](./LICENSE) — free to fork, star & iterate.
