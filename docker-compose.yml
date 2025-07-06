@@ -1,0 +1,13 @@
+services:
+  dccmate:
+    image: suhailphotos/dccmate:latest
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NEBULA_AI_MODELS: /mnt/ai/models
+      DCC_TYPE: Houdini
+    volumes:
+      - ${NEBULA_AI_MODELS}:/models
+    ports:
+      - "8003:8000"
+    restart: unless-stopped

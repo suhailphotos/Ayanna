@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "dccmate"
+version = "0.1.0"
+description = "LLM-powered assistant for DCC apps (Houdini, Blender, Maya, …)"
+authors = ["Suhail <suhailece@gmail.com>"]
+packages = [{ include = "dccmate", from = "src" }]
+
+[tool.poetry.scripts]
+dccmate = "dccmate.cli:app"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pytest = "^8.2"
+llama-cpp-python = "^0.3.0"
+typer = {version = ">=0.16,<1.0", extras = ["all"]}
+click = ">=8.0,<9.0"
+fastapi = "^0.111"
+uvicorn = {extras = ["standard"], version="^0.29"}
+python-dotenv = "^1.0"
