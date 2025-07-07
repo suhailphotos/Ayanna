@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "rndforest"
+version = "0.1.0"
+description = "Random Forest implementation and Houdini integration"
+authors = ["Suhail <suhailece@gmail.com>"]
+packages = [{ include = "rndforest", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10,<4.0"
+pandas = "*"
+numpy = "*"
+scikit-learn = "*"
+joblib = "*"
+
+[poetry.group.dev.dependencies]
+pytest = "*"
+ipython = "*"
+jupyter = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
