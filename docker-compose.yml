@@ -1,0 +1,23 @@
+services:
+  rndforest:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: rndforest
+    ports:
+      - "8003:8000"             # host:container
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - DATASET=/app/data
+      - MODELS_PATH=/app/models
+    volumes:
+      - ./data:/app/data         # Persist datasets on host
+      - ./models:/app/models     # Persist models on host
+    networks:
+      - everest
+    restart: unless-stopped
+
+networks:
+  everest:
+    external: true
