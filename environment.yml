@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
+  - python=3.11
   - pandas
   - numpy
   - scikit-learn
@@ -11,6 +11,9 @@ dependencies:
   - jupyter
   - ipython
   - pip
-
-# Optional: Dev tools
   - pytest
+
+variables:
+  PROJECT_ROOT: "/mnt/ai/projects/rndForest"
+  DATASET: "/mnt/ai/projects/rndForest/data"
+  MODELS_PATH: "/mnt/ai/projects/rndForest/models"

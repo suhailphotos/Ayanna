@@ -11,6 +11,8 @@ pandas = "*"
 numpy = "*"
 scikit-learn = "*"
 joblib = "*"
+uvicorn = { extras = ["standard"], version = "^0.29" }
+fastapi = "^0.111"
 
 [poetry.group.dev.dependencies]
 pytest = "*"

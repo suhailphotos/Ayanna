@@ -32,6 +32,15 @@ MANIFEST
 *.manifest
 *.spec
 
+# .DS_Store
+.DS_Store
+
+# ._
+**/._*
+
+data/
+houdini/.backup
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
