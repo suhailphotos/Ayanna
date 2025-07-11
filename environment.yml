@@ -1,0 +1,29 @@
+name: swara
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - spotdl==4.2.11          # pins the compatible build
+      - fastapi~=0.103.2
+      - uvicorn[standard]>=0.23,<0.30
+      - laion-clap
+      - pandas
+      - numpy
+      - scikit-learn
+      - umap-learn
+      - matplotlib
+      - tqdm
+      - oauthmanager>=0.1.12
+      - spotipy>=2.25
+      # dev
+      - pytest
+      - black
+      - isort
+variables:
+  PROJECT_ROOT: "/mnt/ai/projects/Swara"
+  DATASET: "/mnt/ai/projects/Swara/data"
+  MODELS_PATH: "/mnt/ai/projects/Swara/models"
+

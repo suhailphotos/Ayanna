@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "swara"
+version = "0.1.0"
+description = "Sound-based playlist organiser using deep audio embeddings"
+authors = ["Suhail <suhailece@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [{ include = "swara", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+pandas = "^2.2"
+numpy = "^1.26"
+scikit-learn = "^1.5"
+umap-learn = "^0.5"
+matplotlib = "^3.9"
+tqdm = "^4.66"
+spotdl = "4.2.11"
+laion-clap = "*"
+oauthmanager = "^0.1.12"
+fastapi = "~0.103.2"
+uvicorn = {extras = ["standard"], version = ">=0.23,<0.30"}
+
+[tool.poetry.scripts]
+swara-cli = "swara.app.main:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
