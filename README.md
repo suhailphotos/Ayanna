@@ -1,7 +1,5 @@
 # rndForest: Random Forest ML + Houdini Integration
 
-![rndForest HDA Screenshot](images/hda_screencap.jpg)
-
 ## Overview
 
 **rndForest** is a modular pipeline and Houdini HDA for interactive machine learning workflows—bridging Python-based Random Forest models with procedural content creation in SideFX Houdini. The entire training and inference process runs remotely, communicating via a FastAPI backend. This approach lets you build ML-driven tools inside Houdini without any direct access to model files or local ML dependencies.
