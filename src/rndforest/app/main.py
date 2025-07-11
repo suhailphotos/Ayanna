@@ -1,7 +1,7 @@
 # src/rndforest/app/main.py
 
 import os
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.responses import FileResponse, JSONResponse
 import pandas as pd
 from sklearn.datasets import make_blobs
@@ -35,11 +35,18 @@ def generate_dataset(n_samples: int = 500, n_features: int = 3, centers: int = 4
     return FileResponse(file_path, media_type='text/csv', filename=file_name)
 
 @app.post("/train")
-async def train(file: UploadFile = File(...)):
+async def train(
+    file: UploadFile = File(...),
+    force: bool = Query(False)
+):
     models_dir = get_models_dir()
-    # FastAPI UploadFile gives you a file-like object
-    result = train_model_from_csv(file.file, models_dir)
-    return result
+    model_path = os.path.join(models_dir, "rf_model.joblib")
+    # Only retrain if force=True or model does not exist
+    if force or not os.path.exists(model_path):
+        result = train_model_from_csv(file.file, models_dir)
+        return {"status": "trained", **result}
+    else:
+        return {"status": "skipped", "reason": "Model already exists."}
 
 @app.post("/predict")
 async def predict(data: dict):
