@@ -1,0 +1,31 @@
+from datetime import datetime
+from sqlmodel import Field, SQLModel, Column
+from pgvector.sqlalchemy import Vector
+
+class Playlist(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    name: str
+    owner: str | None = None
+    tracks_total: int | None = None
+    first_seen: datetime = Field(default_factory=datetime.utcnow)
+    last_scan: datetime | None = None
+
+class Track(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    title: str
+    artist: str
+    album: str | None = None
+    duration_ms: int | None = None
+    liked: bool = False              # <── NEW FLAG
+    audio_path: str | None = None
+    download_status: str = "pending" # pending | success | failed
+    download_error: str | None = None
+    first_seen: datetime = Field(default_factory=datetime.utcnow)
+
+class Embedding(SQLModel, table=True):
+    track_id: str = Field(
+        foreign_key="track.id", primary_key=True, index=True
+    )
+    vector: list[float] = Field(sa_column=Column(Vector(768)))
+    model: str = "CLAP-630M"
+    created: datetime = Field(default_factory=datetime.utcnow)

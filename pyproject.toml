@@ -20,6 +20,11 @@ laion-clap = "*"
 oauthmanager = "^0.1.12"
 fastapi = "~0.103.2"
 uvicorn = {extras = ["standard"], version = ">=0.23,<0.30"}
+sqlmodel   = "^0.0.16"
+alembic    = "^1.13"
+psycopg    = "^3.1"          # postgres driver
+pgvector   = "^0.2"          # vector type for SQLAlchemy
+faiss-cpu  = "^1.7"          # dev-time vector search
 
 [tool.poetry.scripts]
 swara = "swara.cli:cli"

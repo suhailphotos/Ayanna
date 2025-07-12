@@ -23,6 +23,11 @@ dependencies:
       - pytest
       - black
       - isort
+      - sqlmodel
+      - alembic
+      - psycopg
+      - pgvector
+      - faiss-cpu
 variables:
   PROJECT_ROOT: "/mnt/ai/projects/Swara"
   DATASET: "/mnt/ai/projects/Swara/data"
