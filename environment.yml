@@ -18,6 +18,7 @@ dependencies:
       - tqdm
       - oauthmanager>=0.1.12
       - spotipy>=2.25
+      - click
       # dev
       - pytest
       - black

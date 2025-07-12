@@ -22,7 +22,9 @@ fastapi = "~0.103.2"
 uvicorn = {extras = ["standard"], version = ">=0.23,<0.30"}
 
 [tool.poetry.scripts]
-swara-cli = "swara.app.main:cli"
+swara = "swara.cli:cli"
+swara-api = "swara.app.main:app"
+
 
 [build-system]
 requires = ["poetry-core"]
