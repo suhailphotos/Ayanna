@@ -1,80 +1,75 @@
-import sys
-import os
-import json
+# scripts/manage_db.py
+import os, sys, json
+from pathlib import Path
+
+from dotenv import load_dotenv
+from sqlalchemy import text, make_url
 from sqlmodel import SQLModel, select
-from sqlalchemy import text
-from swara.db import engine, get_session, DATABASE_URL
-from swara.models import ExcludePlaylist
 
-if DATABASE_URL.startswith("sqlite:///"):
-    db_file = DATABASE_URL.replace("sqlite:///", "")
-    db_dir = os.path.dirname(db_file)
-    os.makedirs(db_dir, exist_ok=True)
+# ── 1. Load env vars early – nothing else touches them yet ──────────
+load_dotenv(dotenv_path=Path(os.environ["PROJECT_ROOT"]) / ".env")
 
-def create_db():
+# ── 2. Import the DB helpers *after* the env is ready ───────────────
+from swara.db import engine, get_session, DATABASE_URL      # ← already expanded
+from swara.models import ExcludePlaylist, ExcludeTrack, Playlist, Track, Embedding
+
+# ── 3. Ensure the SQLite folder exists (only matters for sqlite:///) ─
+if DATABASE_URL.startswith("sqlite"):
+    db_file = make_url(DATABASE_URL).database
+    Path(db_file).parent.mkdir(parents=True, exist_ok=True)
+
+# ─────────────────────────────────────────────────────────────────────
+# Commands
+# ─────────────────────────────────────────────────────────────────────
+def create_db() -> None:
     SQLModel.metadata.create_all(engine)
     print("Database and tables created.")
 
-def import_exclusions(json_path):
-    with open(json_path) as f:
+def import_exclusions(json_path: str) -> None:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     with get_session() as ses:
         for rec in data.get("playlists", []):
             ses.merge(ExcludePlaylist(id=rec["id"], reason="json-import"))
         ses.commit()
-    print("Imported", len(data.get("playlists", [])), "excluded playlists.")
+    print(f"Imported {len(data.get('playlists', []))} excluded playlists.")
 
-def list_tables():
-    # This is SQLite-specific
+def list_tables() -> None:
     with engine.connect() as c:
-        result = c.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        tables = [r[0] for r in result]
-    print("Tables:", ", ".join(tables))
+        rows = c.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        print("Tables:", ", ".join(r[0] for r in rows))
 
-def list_table_contents(table_name, filter_expr=None):
-    from swara.models import ExcludePlaylist, ExcludeTrack, Playlist, Track, Embedding
-    TABLES = {
-        "excludeplaylist": ExcludePlaylist,
-        "excludetrack": ExcludeTrack,
-        "playlist": Playlist,
-        "track": Track,
-        "embedding": Embedding,
-    }
-    model = TABLES.get(table_name.lower())
+TABLES = {
+    "excludeplaylist": ExcludePlaylist,
+    "excludetrack": ExcludeTrack,
+    "playlist": Playlist,
+    "track": Track,
+    "embedding": Embedding,
+}
+
+def list_table_contents(table: str, filter_expr: str | None = None) -> None:
+    model = TABLES.get(table.lower())
     if not model:
-        print(f"Unknown table: {table_name}")
-        print(f"Available: {', '.join(TABLES.keys())}")
+        print(f"Unknown table: {table}")
+        print("Available:", ", ".join(TABLES))
         return
 
     stmt = select(model)
 
-    # Optional filter parsing: field=value
-    if filter_expr:
-        if "=" in filter_expr:
-            field, value = filter_expr.split("=", 1)
-            # Try to cast value type based on model type
-            field = field.strip()
-            value = value.strip()
-            if hasattr(model, field):
-                # Get python type from the model annotation
-                field_type = model.__annotations__.get(field, str)
-                try:
-                    # e.g. convert "True"/"False" to bool, ints, etc.
-                    if field_type is bool:
-                        value = value.lower() in ("true", "1", "yes")
-                    elif field_type is int:
-                        value = int(value)
-                    elif field_type is float:
-                        value = float(value)
-                    # else leave as str
-                except Exception:
-                    pass
-                stmt = stmt.where(getattr(model, field) == value)
-            else:
-                print(f"Unknown field '{field}' for table '{table_name}'")
-                return
+    # simple "field=value" filter
+    if filter_expr and "=" in filter_expr:
+        field, value = (s.strip() for s in filter_expr.split("=", 1))
+        if hasattr(model, field):
+            anno = model.__annotations__.get(field, str)
+            if anno is bool:
+                value = value.lower() in {"true", "1", "yes"}
+            elif anno is int:
+                value = int(value)
+            elif anno is float:
+                value = float(value)
+            stmt = stmt.where(getattr(model, field) == value)
         else:
-            print("Invalid filter syntax: use field=value")
+            print(f"Unknown field '{field}'")
             return
 
     with get_session() as ses:
@@ -84,36 +79,38 @@ def list_table_contents(table_name, filter_expr=None):
         print("(no records)")
         return
 
-    colnames = [field for field in rows[0].__fields__.keys()]
-    print("\t".join(colnames))
+    cols = list(rows[0].__fields__)
+    print("\t".join(cols))
     for row in rows:
-        print("\t".join(str(getattr(row, col)) for col in colnames))
+        print("\t".join(str(getattr(row, c)) for c in cols))
 
-def usage():
-    print(f"""
-Usage: python manage_db.py <command> [args...]
-
-Commands:
-  create                       Create database and tables
-  import_exclusions <path>     Import exclusions from JSON file
-  list_tables                  List all tables in the database
-  list <table> [filter]        List all rows in <table> (optional filter: field=value)
-""")
+# ─────────────────────────────────────────────────────────────────────
+def usage() -> None:
+    print(
+        "Usage: python manage_db.py <command> [args]\n\n"
+        "Commands:\n"
+        "  create                       Create database and tables\n"
+        "  import_exclusions <path>     Import exclusions from JSON file\n"
+        "  list_tables                  List all tables\n"
+        "  list <table> [field=value]   List rows (optional filter)\n"
+    )
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         usage()
         sys.exit(1)
-    cmd = sys.argv[1]
-    if cmd == "create":
-        create_db()
-    elif cmd == "import_exclusions" and len(sys.argv) == 3:
-        import_exclusions(sys.argv[2])
-    elif cmd == "list_tables":
-        list_tables()
-    elif cmd == "list" and len(sys.argv) >= 3:
-        filter_expr = sys.argv[3] if len(sys.argv) == 4 else None
-        list_table_contents(sys.argv[2], filter_expr)
-    else:
-        usage()
-        sys.exit(1)
+
+    cmd, *args = sys.argv[1:]
+
+    match cmd:
+        case "create":
+            create_db()
+        case "import_exclusions" if len(args) == 1:
+            import_exclusions(args[0])
+        case "list_tables":
+            list_tables()
+        case "list" if args:
+            list_table_contents(args[0], args[1] if len(args) > 1 else None)
+        case _:
+            usage()
+            sys.exit(1)

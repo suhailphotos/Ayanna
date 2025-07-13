@@ -5,6 +5,15 @@ from pgvector.sqlalchemy import Vector
 # ──────────────────────────────────────────────
 # Core entities
 # ──────────────────────────────────────────────
+
+
+class User(SQLModel, table=True):
+    id: str = Field(primary_key=True)      # Spotify user-ID or email
+    display_name: str | None = None
+    is_active: bool = True
+    created: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Playlist(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
@@ -32,6 +41,9 @@ class Track(SQLModel, table=True):
     download_status: str = "pending"   # pending | success | failed
     download_error: str | None = None
     first_seen: datetime = Field(default_factory=datetime.utcnow)
+
+    # NEW FIELD (foreign key to user)
+    owner_id: str | None = Field(default=None, foreign_key="user.id")
 
 class Embedding(SQLModel, table=True):
     track_id: str = Field(
