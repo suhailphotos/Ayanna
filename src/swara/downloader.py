@@ -1,207 +1,225 @@
 """
 swara.downloader
 ================
-
-Incremental audio fetcher:
-
-* Skips playlists listed in ~/.config/swara/exclude.json
-* Downloads each Spotify **track-ID** only once
-* Keeps two persistent logs under ~/.cache/swara/
-    • downloaded_ids.json   – every successful track-ID
-    • failed_ids.json       – track-IDs that spotDL/FFmpeg failed to fetch
-* Prints a summary at the end so you know what worked / what didn’t
+DB-backed incremental fetcher
+─────────────────────────────
+• honours ExcludePlaylist / ExcludeTrack tables
+• sets Track.liked from “Liked songs”
+• updates Track.play_count (# of playlists it belongs to)
+• keeps Track.download_status in sync with the file-system
 """
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
+import time
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, Set
+from typing import Iterable, Dict
 
-from oauthmanager.core import get_client
 import click
+from oauthmanager.core import get_client
+from sqlmodel import select, update
 
-# ──────────────────────────────────────────────
-# Paths
-# ──────────────────────────────────────────────
-PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[2]))
-RAW_DIR = PROJECT_ROOT / "data" / "raw"
-RAW_DIR.mkdir(parents=True, exist_ok=True)
+from swara.db import get_session
+from swara.models import Playlist, Track, ExcludePlaylist, ExcludeTrack
 
-CONFIG_DIR = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config")) / "swara"
-CFG_PATH = CONFIG_DIR / "exclude.json"
+# ────────────────────────────── paths ───────────────────────────── #
+ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[2]))
+RAW  = ROOT / "data" / "raw"
+RAW.mkdir(parents=True, exist_ok=True)
 
-CACHE_DIR = Path.home() / ".cache" / "swara"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
-DOWNLOADED_IDS = CACHE_DIR / "downloaded_ids.json"
-FAILED_IDS = CACHE_DIR / "failed_ids.json"
+SPOTDL_CACHE = Path.home() / ".spotdl"
 
-AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".wav", ".ogg"}
+# ─────────────────────────── helpers ────────────────────────────── #
+def _ensure_ffmpeg() -> None:
+    if shutil.which("ffmpeg"):
+        return
+    raise RuntimeError("ffmpeg not on PATH – e.g. `conda install -c conda-forge ffmpeg`")
 
-# ──────────────────────────────────────────────
-# Helper I/O functions
-# ──────────────────────────────────────────────
-def _json_load(path: Path) -> Set[str]:
-    if not path.exists():
-        return set()
-    try:
-        return set(json.loads(path.read_text()))
-    except Exception:
-        return set()
-
-
-def _json_dump(path: Path, data: Set[str]) -> None:
-    path.write_text(json.dumps(sorted(data)))
-
-
-# ──────────────────────────────────────────────
-# Exclude-file helpers
-# ──────────────────────────────────────────────
-def _load_cfg() -> dict:
-    if not CFG_PATH.exists():
-        raise RuntimeError(
-            f"Config not found: {CFG_PATH}. Run `swara init` or add exclude.json."
-        )
-    return json.loads(CFG_PATH.read_text())
-
-
-def _skip_playlist(pl: dict, cfg: dict) -> bool:
-    if any(rec["id"] == pl["id"] for rec in cfg.get("playlists", [])):
-        return True
-
-    name = pl["name"].lower()
-    owner = (pl["owner"]["display_name"] or "").lower()
-    for rec in cfg.get("playlists", []):
-        if rec["name"].lower() == name and (
-            not rec["owner"] or rec["owner"].lower() == owner
-        ):
-            return True
-    return False
-
-
-# ──────────────────────────────────────────────
-# Spotify helpers
-# ──────────────────────────────────────────────
-def _fetch_playlists(sp: Any) -> Iterable[Dict]:
-    limit, offset = 50, 0
-    while True:
-        resp = sp.current_user_playlists(limit=limit, offset=offset)
-        yield from resp["items"]
-        if resp["next"] is None:
-            break
-        offset += limit
-
-
-def _playlist_tracks(sp: Any, playlist_id: str) -> Iterable[Dict]:
-    limit, offset = 100, 0
-    while True:
-        resp = sp.playlist_items(playlist_id, limit=limit, offset=offset)
-        for item in resp["items"]:
-            yield item["track"]
-        if resp["next"] is None:
-            break
-        offset += limit
-
-
-# ──────────────────────────────────────────────
-# spotDL wrapper
-# ──────────────────────────────────────────────
-def _ensure_ffmpeg() -> str:
-    """
-    Verify ffmpeg is discoverable and return its absolute path.
-    Raises RuntimeError with install hints otherwise.
-    """
-    ffmpeg_path = shutil.which("ffmpeg")
-    if ffmpeg_path:
-        return ffmpeg_path
-
-    raise RuntimeError(
-        "ffmpeg executable not found on PATH – spotDL cannot convert audio.\n\n"
-        "Install suggestions:\n"
-        "  • Conda:   conda install -c conda-forge ffmpeg\n"
-        "  • Ubuntu:  sudo apt install ffmpeg\n"
-        "  • macOS:   brew install ffmpeg\n"
-        "  • Windows: choco install ffmpeg   (or scoop / winget)"
-    )
-
-
-def _download_track(url: str, out_dir: Path, *, dry: bool = False) -> None:
-    """
-    Call `spotdl download <url>` with a custom output template.
-    """
+def _spotdl(url: str, out_dir: Path, *, dry: bool = False) -> None:
     if dry:
         click.echo(f"  · {url}")
         return
-
     subprocess.run(
-        [
-            "spotdl", "download", url,
-            "--output", str(out_dir / "{artist} - {title}")
-        ],
+        ["spotdl", "download", url, "--output", str(out_dir / "{artist} - {title}")],
+        text=True,
         check=True,
     )
-    # spotDL appends ".mp3" automatically based on chosen format
+    # polite delay → avoids Spotify 429 during large batches
+    time.sleep(0.12)   # 120 ms  ≈ 8-9 requests / second
 
+def _fetch_all_playlists(sp) -> Iterable[Dict]:
+    lim = 50
+    off = 0
+    while True:
+        page = sp.current_user_playlists(limit=lim, offset=off)
+        yield from page["items"]
+        if page["next"] is None:
+            break
+        off += lim
 
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
-def main(*, dry_run: bool = False) -> None:
+def _playlist_tracks(sp, pid: str) -> Iterable[Dict]:
+    lim = 100
+    off = 0
+    while True:
+        page = sp.playlist_items(pid, limit=lim, offset=off)
+        for item in page["items"]:
+            yield item["track"]
+        if page["next"] is None:
+            break
+        off += lim
+
+def _saved_track_ids(sp) -> set[str]:
+    """One pass over the 'Liked songs' collection (max 50 per page)."""
+    ids: set[str] = set()
+    lim = 50
+    off = 0
+    while True:
+        page = sp.current_user_saved_tracks(limit=lim, offset=off)
+        ids |= {item["track"]["id"] for item in page["items"]}
+        if page["next"] is None:
+            break
+        off += lim
+    return ids
+
+# ─────────────────────────── main routine ───────────────────────── #
+def main(*, dry_run: bool = False, verbose: bool = False, clear_cache: bool = False) -> None:
     _ensure_ffmpeg()
 
-    cfg = _load_cfg()
-    downloaded = _json_load(DOWNLOADED_IDS)
-    failed = _json_load(FAILED_IDS)
+    if clear_cache and SPOTDL_CACHE.exists():
+        shutil.rmtree(SPOTDL_CACHE)
+        click.secho("• spotDL cache cleared", fg="yellow")
 
     sp = get_client("spotify", scopes=["playlist-read-private", "user-library-read"])
+    liked_ids = _saved_track_ids(sp)
 
-    new_success, new_fail = 0, 0
+    with get_session() as ses:
+        excluded_pl_ids = set(ses.exec(select(ExcludePlaylist.id)))
+        excluded_tr_ids = set(ses.exec(select(ExcludeTrack.id)))
 
-    for pl in _fetch_playlists(sp):
-        if _skip_playlist(pl, cfg):
+    # ── scan Spotify & upsert DB ─────────────────────────────────── #
+    click.secho("Scanning Spotify …", fg="cyan")
+    new_tracks: list[str] = []
+    track_counts: Counter[str] = Counter()
+
+    with get_session() as ses:
+        for pl in _fetch_all_playlists(sp):
+            pid = pl["id"]
+            if pid in excluded_pl_ids:
+                if verbose:
+                    click.echo(f"⤼  skip  {pl['name']}")
+                continue
+
+            if verbose:
+                click.secho(f"▶  {pl['name']}  ({pl['tracks']['total']} tracks)", fg="cyan")
+
+            ses.merge(
+                Playlist(
+                    id=pid,
+                    name=pl["name"],
+                    owner=pl["owner"]["display_name"],
+                    tracks_total=pl["tracks"]["total"],
+                    last_scan=datetime.utcnow(),
+                )
+            )
+
+            for tr in _playlist_tracks(sp, pid):
+                tid = tr["id"]
+                if tid in excluded_tr_ids:
+                    continue
+
+                track_counts[tid] += 1
+                row = ses.get(Track, tid)
+
+                if not row:
+                    row = Track(
+                        id=tid,
+                        title=tr["name"],
+                        artist=", ".join(a["name"] for a in tr["artists"]),
+                        album=tr["album"]["name"],
+                        duration_ms=tr["duration_ms"],
+                        play_count=0,           # will set below
+                    )
+                    new_tracks.append(tid)
+
+                row.liked = tid in liked_ids
+                ses.add(row)
+
+        # second pass: update play_count in bulk
+        for tid, n in track_counts.items():
+            ses.exec(
+                update(Track)
+                .where(Track.id == tid)
+                .values(play_count=n)
+            )
+
+        ses.commit()
+
+    click.echo(f"  • discovered {len(new_tracks)} new tracks")
+    click.echo(f"  • updated play_count on {len(track_counts)} tracks")
+
+    # ── pending queue ────────────────────────────────────────────── #
+    with get_session() as ses:
+        pending = ses.exec(
+            select(Track).where(Track.download_status == "pending")
+        ).all()
+
+    if not pending:
+        click.secho("Nothing to download – library up-to-date.", fg="green")
+        return
+
+    click.secho(f"\nDownloading {len(pending)} tracks …", fg="cyan")
+    ok = bad = 0
+    for t in pending:
+        try:
+            _spotdl(f"https://open.spotify.com/track/{t.id}", RAW, dry=dry_run)
+        except subprocess.CalledProcessError as exc:
+            bad += 1
+            if not dry_run:
+                with get_session() as ses:
+                    ses.exec(
+                        update(Track)
+                        .where(Track.id == t.id)
+                        .values(download_status="failed",
+                                download_error=str(exc))
+                    )
+                    ses.commit()
+            click.secho(f"  ⚠  {t.title} failed", fg="red")
             continue
 
-        click.secho(f"▶  {pl['name']} ({pl['tracks']['total']} tracks)", fg="cyan")
-        for track in _playlist_tracks(sp, pl["id"]):
-            tid = track["id"]
-            if tid in downloaded:
-                continue  # already have it
-            url = track["external_urls"]["spotify"]
+        if not dry_run:
+            rel = f"{t.artist} - {t.title}.mp3"
+            with get_session() as ses:
+                ses.exec(
+                    update(Track)
+                    .where(Track.id == t.id)
+                    .values(download_status="success",
+                            audio_path=str(RAW / rel),
+                            download_error=None)
+                )
+                ses.commit()
+        ok += 1
 
-            try:
-                _download_track(url, RAW_DIR, dry=dry_run)
-                if not dry_run:
-                    downloaded.add(tid)
-                    failed.discard(tid)
-                    new_success += 1
-            except subprocess.CalledProcessError as exc:
-                click.secho(f"  ⚠️  failed {url} → {exc}", fg="red")
-                if not dry_run:
-                    failed.add(tid)
-                    new_fail += 1
-
-    # Persist logs
-    if not dry_run:
-        _json_dump(DOWNLOADED_IDS, downloaded)
-        _json_dump(FAILED_IDS, failed)
-
-    # Summary
+    # ── summary ──────────────────────────────────────────────────── #
     click.echo()
     if dry_run:
         click.secho("Dry-run complete – no files downloaded.", fg="yellow")
     else:
         click.secho(
-            f"Finished – {new_success} new ↓   {new_fail} failed (see {FAILED_IDS}).",
-            fg="green" if new_fail == 0 else "yellow",
+            f"Finished – {ok} downloaded   {bad} failed",
+            fg="green" if bad == 0 else "yellow",
         )
 
-
+# ─────────────────────────── CLI glue ──────────────────────────── #
 if __name__ == "__main__":
-    import argparse
-
-    p = argparse.ArgumentParser(description="Download Spotify playlists with Swara")
-    p.add_argument("--dry-run", action="store_true", help="List URLs only, no download")
-    main(dry_run=p.parse_args().dry_run)
+    import argparse, sys
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run",     action="store_true", help="list but don’t download")
+    ap.add_argument("-v", "--verbose", action="store_true", help="show playlists while scanning")
+    ap.add_argument("--clear-cache", action="store_true", help="delete ~/.spotdl/ first")
+    args = ap.parse_args()
+    sys.exit(main(dry_run=args.dry_run, verbose=args.verbose, clear_cache=args.clear_cache))

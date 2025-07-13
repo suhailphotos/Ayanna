@@ -42,11 +42,13 @@ def cli_init() -> None:
     copy_templates()
     click.secho("Done.", fg="green")
 
-@cli.command("download", help="Download all eligible Spotify tracks")
-@click.option("--dry-run", is_flag=True, help="List tracks but don’t download")
-def cli_download(dry_run: bool) -> None:
+@cli.command("download", help="Scan your Spotify library then download pending tracks")
+@click.option("--dry-run",      is_flag=True, help="List URLs without downloading")
+@click.option("-v", "--verbose", is_flag=True, help="Show playlists while scanning")
+@click.option("--clear-cache",  is_flag=True, help="Delete ~/.spotdl/ before downloading")
+def cli_download(dry_run: bool, verbose: bool, clear_cache: bool) -> None:
     from swara.downloader import main as run_dl
-    run_dl(dry_run=dry_run)
+    run_dl(dry_run=dry_run, verbose=verbose, clear_cache=clear_cache)
 
 if __name__ == "__main__":
     cli()
