@@ -50,14 +50,9 @@ def ls(table=None, filter_expr=None, full=False, head=False, head_n=20, truncate
         buf.append(f"Database: {DATABASE_URL}\n")
         for tname in TABLES:
             buf.append(f"== {tname.upper()} ==")
-            buf.append(ls(tname, full=full, head=head, head_n=head_n, truncate_len=truncate_len, return_str=True))
+            buf.append(ls(tname, full=full, head=head, head_n=head_n, truncate_len=truncate_len))
             buf.append("")
-        out = "\n".join(buf)
-        if not head:    # Default: page output
-            pydoc.pager(out)
-        else:
-            print(out)
-        return
+        return "\n".join(buf)
 
     model = TABLES.get(table.lower())
     if not model:
@@ -127,6 +122,35 @@ def ls(table=None, filter_expr=None, full=False, head=False, head_n=20, truncate
         lines.append(f"\n(Tip: Use --head to see only first {head_n} rows, --full to show untruncated text.)")
     return "\n".join(lines)
 
+def schema_report():
+    with engine.connect() as c:
+        # List all user tables (not sqlite internal)
+        tables = [
+            row[0] for row in c.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            )
+        ]
+        if not tables:
+            print("No tables found.")
+            return
+
+        print(f"\nDatabase: {DATABASE_URL}")
+        for tname in tables:
+            print(f"\n— {tname} —")
+            cols = c.execute(text(f"PRAGMA table_info('{tname}')")).fetchall()
+            print("Columns:")
+            for col in cols:
+                name, ctype, notnull, dflt, pk = col[1], col[2], col[3], col[4], col[5]
+                print(f"  {name:<20} {ctype:<12} {'NOT NULL' if notnull else ''} {'PK' if pk else ''} default={dflt}")
+            fks = c.execute(text(f"PRAGMA foreign_key_list('{tname}')")).fetchall()
+            if fks:
+                print("Foreign Keys:")
+                for fk in fks:
+                    print(f"  {fk[3]} → {fk[2]}.{fk[4]} (on_update={fk[5]}, on_delete={fk[6]})")
+            rowcount = c.execute(text(f"SELECT COUNT(*) FROM '{tname}'")).scalar_one()
+            print(f"Rows: {rowcount}")
+        print()
+
 # ---- CLI Handler ----
 
 if __name__ == "__main__":
@@ -165,13 +189,16 @@ if __name__ == "__main__":
             import_exclusions(args[0])
         case "ls":
             if not args:
-                ls(full=full, head=head, head_n=head_n)  # This prints/pages internally
+                result = ls(full=full, head=head, head_n=head_n)
             elif len(args) == 1:
                 result = ls(args[0], full=full, head=head, head_n=head_n)
-                if result: print(result)
             else:
                 result = ls(args[0], args[1], full=full, head=head, head_n=head_n)
-                if result: print(result)
+            if result:
+                if not head:
+                    pydoc.pager(result)
+                else:
+                    print(result)
         case "schema_report":
             schema_report()
         case _:

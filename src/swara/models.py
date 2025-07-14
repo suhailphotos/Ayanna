@@ -17,9 +17,7 @@ class User(SQLModel, table=True):
 class Playlist(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
-    owner: str | None = None             # human-readable (kept for convenience)
-
-    owner_id: str | None = Field(        # <── NEW FK
+    owner_id: str | None = Field(
         default=None, foreign_key="user.id"
     )
     tracks_total: int | None = None
