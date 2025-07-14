@@ -28,6 +28,7 @@ dependencies:
       - psycopg
       - pgvector
       - faiss-cpu
+      - wcwidth
 variables:
   PROJECT_ROOT: "/mnt/ai/projects/Swara"
   DATASET: "/mnt/ai/projects/Swara/data"

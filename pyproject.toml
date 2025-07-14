@@ -25,6 +25,7 @@ alembic    = "^1.13"
 psycopg    = "^3.1"          # postgres driver
 pgvector   = "^0.2"          # vector type for SQLAlchemy
 faiss-cpu  = "^1.7"          # dev-time vector search
+wcwidth = "^0.2.13"
 
 [tool.poetry.scripts]
 swara = "swara.cli:cli"
