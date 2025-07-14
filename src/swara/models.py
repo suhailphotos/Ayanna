@@ -17,7 +17,11 @@ class User(SQLModel, table=True):
 class Playlist(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
-    owner: str | None = None
+    owner: str | None = None             # human-readable (kept for convenience)
+
+    owner_id: str | None = Field(        # <── NEW FK
+        default=None, foreign_key="user.id"
+    )
     tracks_total: int | None = None
     first_seen: datetime = Field(default_factory=datetime.utcnow)
     last_scan: datetime | None = None
@@ -43,7 +47,7 @@ class Track(SQLModel, table=True):
     first_seen: datetime = Field(default_factory=datetime.utcnow)
 
     # NEW FIELD (foreign key to user)
-    owner_id: str | None = Field(default=None, foreign_key="user.id")
+    # owner_id: str | None = Field(default=None, foreign_key="user.id")
 
 class Embedding(SQLModel, table=True):
     track_id: str = Field(

@@ -3,9 +3,15 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-
+from pathlib import Path
 from alembic import context
 
+try:
+    from dotenv import load_dotenv
+    root = os.environ.get("PROJECT_ROOT", str(Path(__file__).resolve().parents[1]))
+    load_dotenv(dotenv_path=Path(root) / ".env")
+except Exception as e:
+    pass
 
 
 # this is the Alembic Config object, which provides
