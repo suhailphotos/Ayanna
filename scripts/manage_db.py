@@ -122,34 +122,41 @@ def ls(table=None, filter_expr=None, full=False, head=False, head_n=20, truncate
         lines.append(f"\n(Tip: Use --head to see only first {head_n} rows, --full to show untruncated text.)")
     return "\n".join(lines)
 
-def schema_report():
-    with engine.connect() as c:
-        # List all user tables (not sqlite internal)
-        tables = [
-            row[0] for row in c.execute(
-                text("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-            )
-        ]
-        if not tables:
-            print("No tables found.")
-            return
+from sqlalchemy import inspect
 
-        print(f"\nDatabase: {DATABASE_URL}")
-        for tname in tables:
-            print(f"\n— {tname} —")
-            cols = c.execute(text(f"PRAGMA table_info('{tname}')")).fetchall()
-            print("Columns:")
-            for col in cols:
-                name, ctype, notnull, dflt, pk = col[1], col[2], col[3], col[4], col[5]
-                print(f"  {name:<20} {ctype:<12} {'NOT NULL' if notnull else ''} {'PK' if pk else ''} default={dflt}")
-            fks = c.execute(text(f"PRAGMA foreign_key_list('{tname}')")).fetchall()
-            if fks:
-                print("Foreign Keys:")
-                for fk in fks:
-                    print(f"  {fk[3]} → {fk[2]}.{fk[4]} (on_update={fk[5]}, on_delete={fk[6]})")
-            rowcount = c.execute(text(f"SELECT COUNT(*) FROM '{tname}'")).scalar_one()
-            print(f"Rows: {rowcount}")
-        print()
+def schema_report():
+    insp = inspect(engine)
+    tables = insp.get_table_names()
+    if not tables:
+        print("No tables found.")
+        return
+
+    print(f"\nDatabase: {DATABASE_URL}")
+    for tname in tables:
+        print(f"\n— {tname} —")
+        columns = insp.get_columns(tname)
+        print("Columns:")
+        for col in columns:
+            name = col['name']
+            ctype = str(col['type'])
+            nullable = "NOT NULL" if not col['nullable'] else ""
+            default = col.get('default', None)
+            pk = "PK" if col.get('primary_key', False) else ""
+            print(f"  {name:<20} {ctype:<20} {nullable:<8} {pk:<4} default={default}")
+
+        fks = insp.get_foreign_keys(tname)
+        if fks:
+            print("Foreign Keys:")
+            for fk in fks:
+                cols = ', '.join(fk['constrained_columns'])
+                referred_table = fk['referred_table']
+                referred_cols = ', '.join(fk['referred_columns'])
+                print(f"  {cols} → {referred_table}({referred_cols})")
+        # Get row count (works on both sqlite/pg)
+        with engine.connect() as c:
+            rowcount = c.execute(text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one()
+        print(f"Rows: {rowcount}")
+    print()
 
 # ---- CLI Handler ----
 
