@@ -7,11 +7,6 @@ from dotenv import load_dotenv
 from sqlalchemy import text, make_url
 from sqlmodel import SQLModel, select
 
-try:
-    from tabulate import tabulate
-except ImportError:
-    tabulate = None  # Fallback to manual formatting if not installed
-
 load_dotenv(dotenv_path=Path(os.environ["PROJECT_ROOT"]) / ".env")
 
 from swara.db import engine, get_session, DATABASE_URL
