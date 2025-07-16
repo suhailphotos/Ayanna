@@ -1,14 +1,9 @@
 import click, itertools
 from tabulate import tabulate
 from oauthmanager.core import get_client
+from swara.table import render as render_table
 
 sp = get_client("spotify")
-
-# ── minimal renderer ─────────────────────────────────────────────
-def _render(rows, *, head=False, head_n=20, headers="keys"):
-    if head:
-        rows = rows[:head_n]
-    return tabulate(rows, headers=headers, tablefmt="github", stralign="left")
 
 def _fetch_playlists():
     lim = 50
@@ -42,4 +37,4 @@ def ls(entity, head, head_n):
             }
             for p in _fetch_playlists()
         ]
-        click.echo(_render(rows, head=head, head_n=head_n))
+        click.echo(render_table(rows, head=head, head_n=head_n))
