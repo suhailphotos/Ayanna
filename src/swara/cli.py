@@ -11,9 +11,9 @@ from swara import db_cli
 import shutil, os, sys, subprocess, json
 from pathlib import Path
 import click
+import sys, pydoc
 
 from swara.providers.spotify_cli import spotify
-from swara.db_cli import ls as _render_table
 
 PKG_ROOT   = Path(__file__).resolve().parent
 CONFIG_SRC = PKG_ROOT / ".config"
@@ -67,8 +67,14 @@ def db_group(): ...
 @click.option("--head", is_flag=True)
 @click.option("--head-n", default=20, show_default=True)
 def db_ls(table, filter, full, head, head_n):
-    out = db_cli.ls(table, filter, full, head, head_n)
-    click.echo(out)
+    text = db_cli.ls(table, filter, full, head, head_n)
+
+    # ── use pager when the output is “big” and we’re in a TTY ──
+    lines = text.count("\n")
+    if lines > 60 and sys.stdout.isatty() and not head:
+        pydoc.pager(text)
+    else:
+        click.echo(text)
 
 @db_group.command("schema")
 def db_schema():

@@ -1,5 +1,4 @@
-import click, itertools
-from tabulate import tabulate
+import click
 from oauthmanager.core import get_client
 from swara.table import render as render_table
 
