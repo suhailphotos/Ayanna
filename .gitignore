@@ -40,7 +40,7 @@ MANIFEST
 data/
 
 
-./docker/creds_config.json
+docker/creds_config.json
 
 # Installer logs
 pip-log.txt
