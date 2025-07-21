@@ -86,6 +86,14 @@ def _saved_track_ids(sp) -> set[str]:
         off += lim
     return ids
 
+def provider_snapshot(sp):
+    """Return (playlist_ids, track_ids)."""
+    pls = {p["id"] for p in _fetch_all_playlists(sp)}
+    tids = set()
+    for pid in pls:
+        tids |= {t["id"] for t in _playlist_tracks(sp, pid)}
+    return pls, tids
+
 # ─────────────────────────── main routine ───────────────────────── #
 def main(*, dry_run: bool = False, verbose: bool = False, clear_cache: bool = False) -> None:
     _ensure_ffmpeg()
@@ -146,6 +154,15 @@ def main(*, dry_run: bool = False, verbose: bool = False, clear_cache: bool = Fa
                     )
                     new_tracks.append(tid)
 
+                # ── UPDATE corrupted rows ────────────────────────────
+                if row.title == "(placeholder)":
+                    row.title = tr["name"]
+                if row.artist in ("?", None, ""):
+                    row.artist = ", ".join(a["name"] for a in tr["artists"])
+                if row.album in (None, ""):
+                    row.album = tr["album"]["name"]
+                if row.duration_ms is None:
+                    row.duration_ms = tr["duration_ms"]
                 row.liked = tid in liked_ids
                 ses.add(row)
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy import ForeignKey
 from sqlmodel import Field, SQLModel, Column
 from pgvector.sqlalchemy import Vector
 

@@ -8,18 +8,23 @@ $ swara download             # run the downloader
 
 from __future__ import annotations
 from swara import db_cli
+from swara.downloader import provider_snapshot
+from swara.providers.spotify_cli import spotify
+from swara.models import Track, Playlist, ExcludePlaylist, ExcludeTrack
+from swara.db import get_session
+from swara.sync import sync_db, prune_orphans
+from sqlalchemy import delete, update, select
 import shutil, os, sys, subprocess, json
 from pathlib import Path
 import click
 import sys, pydoc
 
-from swara.providers.spotify_cli import spotify
 
 PKG_ROOT   = Path(__file__).resolve().parent
 CONFIG_SRC = PKG_ROOT / ".config"
 CONFIG_DIR = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config")) / "swara"
 TEMPLATE_FILES = [("exclude.json", "exclude.json", False)]
-
+RAW = Path(os.getenv("DATASET", PKG_ROOT.parents[1] / "data")) / "raw"
 
 
 
@@ -88,6 +93,25 @@ def db_create():
 @click.argument("json_path", type=click.Path(exists=True))
 def db_import_exc(json_path):
     db_cli.import_exclusions(json_path)
+
+@cli.command(help="Reconcile DB ↔ Spotify.  DB mutates, files optional.")
+@click.option("--remove-files", is_flag=True,
+              help="Delete audio files as soon as their DB row is dropped.")
+@click.option("--prune", is_flag=True,
+              help="Also delete orphan mp3 that are no longer in DB.")
+def sync(remove_files, prune):
+    report = sync_db(remove_files=remove_files, prune=prune)
+    click.echo(report)
+
+@cli.command(help="Remove audio files whose track is no longer in the DB")
+@click.option("--yes", is_flag=True, help="Do not ask for confirmation")
+def prune(yes):
+    n = prune_orphans(ask=not yes)
+    if n:
+        click.secho(f"Deleted {n} files.", fg="yellow")
+    else:
+        click.secho("✓ No orphan files found.", fg="green")
+
 
 cli.add_command(spotify, name="spotify")
 
