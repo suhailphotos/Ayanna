@@ -62,20 +62,31 @@ def _playlist_tracks(sp, pid: str) -> Iterable[dict]:
 # Provider snapshot – returns richer structures to detect renames
 # ---------------------------------------------------------------------------
 
-def provider_snapshot() -> tuple[Mapping[str, str], Set[str]]:
-    """Return (`{playlist_id: name}`, `{track_ids}`) currently visible on Spotify."""
+def provider_snapshot() -> tuple[Mapping[str, str], Mapping[str, dict], Set[str]]:
+    """
+    Return ({playlist_id: name}, {track_id: track_obj}, {track_ids})
+    Only playlists NOT excluded are processed.
+    """
     sp = get_client("spotify", scopes=["playlist-read-private"])
 
+    # Fetch excluded playlists from the DB (need a session here)
+    from swara.db import get_session
+    from swara.models import ExcludePlaylist
+    with get_session() as ses:
+        excluded_playlist_ids = set(ses.exec(select(ExcludePlaylist.id)).scalars())
+
     playlist_map: dict[str, str] = {}
-    track_ids: set[str] = set()
+    track_info: dict[str, dict] = {}
 
     for pl in _fetch_all_playlists(sp):
         pid = pl["id"]
+        if pid in excluded_playlist_ids:
+            continue  # SKIP this playlist
         playlist_map[pid] = pl["name"]
-        # accumulate tracks for this playlist
-        track_ids |= {t["id"] for t in _playlist_tracks(sp, pid)}
-
-    return playlist_map, track_ids
+        for t in _playlist_tracks(sp, pid):
+            if t and t.get("id"):
+                track_info[t["id"]] = t
+    return playlist_map, track_info, set(track_info)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Main sync routine
@@ -84,7 +95,8 @@ def provider_snapshot() -> tuple[Mapping[str, str], Set[str]]:
 def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
     """Synchronise Postgres DB with live Spotify data and optionally the MP3 store."""
 
-    live_playlists, live_tids = provider_snapshot()
+    # CHANGED: Provider snapshot now returns playlist_map, track_info, live_tids
+    live_playlists, track_info, live_tids = provider_snapshot()  # <-- changed
     live_plids = set(live_playlists)
 
     with get_session() as ses:  # transactional scope
@@ -94,10 +106,7 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         exc_pl = set(ses.exec(select(ExcludePlaylist.id)).scalars())
         exc_tr = set(ses.exec(select(ExcludeTrack.id)).scalars())
 
-        # ────────────────────────────────────────────────────────────────
         # 1. Insert NEW playlists / tracks --------------------------------
-        #    (bucket 1 in the spec)
-        # ────────────────────────────────────────────────────────────────
         new_pl = live_plids - db_plids - exc_pl
         new_tr = live_tids - db_tids - exc_tr
 
@@ -108,18 +117,28 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
                 ]).on_conflict_do_nothing()
             )
 
+        # CHANGED: Insert new tracks with all required fields
         if new_tr:
+            rows = []
+            for tid in new_tr:
+                t = track_info[tid]
+                rows.append({
+                    "id": tid,
+                    "title": t.get("name") or "(unknown)",  # CHANGED: fill in title
+                    "artist": ", ".join(a.get("name", "?") for a in t.get("artists", [])) or "(unknown)",  # CHANGED: fill in artist
+                    "album": t.get("album", {}).get("name") if t.get("album") else None,
+                    "duration_ms": t.get("duration_ms"),
+                    "download_status": "pending",
+                    # optionally set temperature/play_count/other fields if needed
+                })
             ses.execute(
-                pg_insert(Track).values([
-                    {"id": tid, "download_status": "pending"} for tid in new_tr
-                ]).on_conflict_do_nothing()
+                pg_insert(Track).values(rows).on_conflict_do_nothing()
             )
+        # END CHANGED
 
-        # ────────────────────────────────────────────────────────────────
         # 2. Detect playlist RENAMES --------------------------------------
-        # ────────────────────────────────────────────────────────────────
         if live_plids & db_plids:
-            db_names = dict(ses.exec(select(Playlist.id, Playlist.name)))
+            db_names = dict(ses.exec(select(Playlist.id, Playlist.name)).all())  # <--- FIXED
             renamed = {
                 pid: live_playlists[pid]
                 for pid in live_plids & db_plids
@@ -130,15 +149,11 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
                     update(Playlist).where(Playlist.id == pid).values(name=new_name)
                 )
 
-        # ────────────────────────────────────────────────────────────────
-        # 3. Delete items gone from Spotify (bucket 2) --------------------
-        #      – must ALSO delete dependents (e.g. Embedding) -------------
-        # ────────────────────────────────────────────────────────────────
+        # 3. Delete items gone from Spotify -------------------------------
         gone_pl = db_plids - live_plids - exc_pl
         gone_tr = db_tids - live_tids - exc_tr
 
         if gone_tr:
-            # delete embeddings first to satisfy FK RESTRICT if CASCADE not set
             ses.exec(delete(Embedding).where(Embedding.track_id.in_(gone_tr)))
             ses.exec(delete(Track).where(Track.id.in_(gone_tr)))
             if remove_files:
@@ -147,18 +162,12 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         if gone_pl:
             ses.exec(delete(Playlist).where(Playlist.id.in_(gone_pl)))
 
-        # ────────────────────────────────────────────────────────────────
-        # 4. Bucket 4 – newly‑excluded playlists / tracks -----------------
-        #     (handled by previous steps because exc_* are removed from
-        #      new_pl/new_tr and will fall into *gone* sets on next sync)
-        # ────────────────────────────────────────────────────────────────
+        # 4. Bucket 4 – exclusions (no change, already handled above)
 
         # Commit all DB mutations atomically
         ses.commit()
 
-        # ────────────────────────────────────────────────────────────────
         # 5. Optionally prune orphan files (bucket 3) ---------------------
-        # ────────────────────────────────────────────────────────────────
         n_orphan = 0
         if prune:
             n_orphan = _prune_orphans(db_session=ses)
