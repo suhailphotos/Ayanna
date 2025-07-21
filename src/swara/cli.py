@@ -43,7 +43,7 @@ from swara.models import Track, Playlist, ExcludePlaylist, ExcludeTrack
 from swara.db import get_session
 from swara.sync import sync_db, prune_orphans
 from sqlalchemy import delete, update, select
-import shutil, sys, pydoc, json
+import shutil, sys, pydoc, json, re
 
 # ---------------------------------------------------------------------------
 # Project paths & env
@@ -98,6 +98,24 @@ def copy_templates() -> None:
         shutil.copy2(src, dest)
         click.echo(f"· Copied {dest.name}")
 
+def resolve_pg_url(db_url):
+    """Return a plain Postgres URL for pg_dump/pg_restore."""
+    if db_url is None:
+        return None
+    if db_url.startswith("postgresql+"):
+        return re.sub(r"^postgresql\+\w+://", "postgresql://", db_url)
+    return db_url
+
+def resolve_sqlite_path(db_url):
+    """Return SQLite DB path from the URL if present, else None."""
+    if not db_url:
+        return None
+    if db_url.startswith("sqlite:///"):
+        return db_url.replace("sqlite:///", "")
+    elif db_url.startswith("sqlite:////"):  # for absolute path
+        return db_url.replace("sqlite:////", "/")
+    return None
+
 # =============================================================================
 # CLI
 # =============================================================================
@@ -122,7 +140,7 @@ def db_group():
     pass
 
 
-@db_group.command("backup", help="Dump the Postgres DB to a .sql.gz file")
+@db_group.command("backup", help="Dump the database to a backup file (.sql.gz for PG, .bak for SQLite)")
 @click.argument("out", type=click.Path(dir_okay=False, path_type=Path), required=False)
 def db_backup(out: Path | None):
     db_url = os.getenv("DATABASE_URL")
@@ -133,40 +151,67 @@ def db_backup(out: Path | None):
     dump_path = out or _default_dump_name()
     dump_path.parent.mkdir(parents=True, exist_ok=True)
 
-    click.echo(f"Creating backup → {dump_path}")
-    _run([
-        "pg_dump",
-        "--file", str(dump_path),
-        "--dbname", db_url,
-        "--format=custom",
-        "--no-owner", "--no-acl",
-        "--compress=9",
-    ])
+    if db_url.startswith("postgresql"):
+        pg_url = resolve_pg_url(db_url)
+        click.echo(f"Creating Postgres backup → {dump_path}")
+        _run([
+            "pg_dump",
+            "--file", str(dump_path),
+            "--dbname", pg_url,
+            "--format=custom",
+            "--no-owner", "--no-acl",
+            "--compress=9",
+        ])
+    elif db_url.startswith("sqlite"):
+        sqlite_path = resolve_sqlite_path(db_url)
+        if not sqlite_path or not Path(sqlite_path).exists():
+            click.secho("SQLite DB file not found.", fg="red")
+            raise SystemExit(1)
+        click.echo(f"Creating SQLite backup → {dump_path}")
+        # Use the .backup command for safety, or just copy the file:
+        _run([
+            "sqlite3", sqlite_path, f".backup {dump_path}"
+        ])
+    else:
+        click.secho(f"Unsupported database type: {db_url}", fg="red")
+        raise SystemExit(1)
+
     click.secho("✓ Backup complete", fg="green")
 
 
-@db_group.command("restore", help="Restore DB from a pg_dump --format=custom file")
+@db_group.command("restore", help="Restore DB from a backup file")
 @click.argument("dump", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--drop", is_flag=True, help="Drop existing objects before restore (uses pg_restore --clean)")
+@click.option("--drop", is_flag=True, help="Drop existing objects before restore (pg only)")
 def db_restore(dump: Path, drop: bool):
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         click.secho("DATABASE_URL not set – cannot restore", fg="red")
         raise SystemExit(1)
 
-    click.secho("Restoring database …", fg="yellow")
+    if db_url.startswith("postgresql"):
+        pg_url = resolve_pg_url(db_url)
+        click.secho("Restoring Postgres database …", fg="yellow")
+        cmd = [
+            "pg_restore",
+            "--dbname", pg_url,
+            "--no-owner", "--no-acl",
+        ]
+        if drop:
+            cmd.append("--clean")
+        cmd.append(str(dump))
+        _run(cmd)
+    elif db_url.startswith("sqlite"):
+        sqlite_path = resolve_sqlite_path(db_url)
+        if not sqlite_path:
+            click.secho("SQLite DB path could not be resolved.", fg="red")
+            raise SystemExit(1)
+        click.secho("Restoring SQLite database …", fg="yellow")
+        # CAUTION: This will overwrite the SQLite database file!
+        _run(["cp", str(dump), sqlite_path])
+    else:
+        click.secho(f"Unsupported database type: {db_url}", fg="red")
+        raise SystemExit(1)
 
-    # pg_restore with --create would try to create the database itself; we
-    # instead connect to the existing DB_URL and wipe objects with --clean.
-    cmd = [
-        "pg_restore",
-        "--dbname", db_url,
-        "--no-owner", "--no-acl",
-    ]
-    if drop:
-        cmd.append("--clean")
-    cmd.append(str(dump))
-    _run(cmd)
     click.secho("✓ Restore complete", fg="green")
 
 @cli.command("download", help="Scan your Spotify library then download pending tracks")
