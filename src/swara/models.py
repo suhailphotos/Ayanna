@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlmodel import Field, SQLModel, Column
 from pgvector.sqlalchemy import Vector
 
@@ -50,7 +50,9 @@ class Track(SQLModel, table=True):
 
 class Embedding(SQLModel, table=True):
     track_id: str = Field(
-        foreign_key="track.id", primary_key=True, index=True
+        sa_column=Column(
+            String, ForeignKey("track.id", ondelete="CASCADE"), primary_key=True
+        )
     )
     vector: list[float] = Field(sa_column=Column(Vector(768)))
     model: str = "CLAP-630M"
