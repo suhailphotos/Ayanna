@@ -129,7 +129,7 @@ def main(*, dry_run: bool = False, verbose: bool = False, clear_cache: bool = Fa
                 Playlist(
                     id=pid,
                     name=pl["name"],
-                    owner=pl["owner"]["display_name"],
+                    owner_id=pl["owner"]["id"],
                     tracks_total=pl["tracks"]["total"],
                     last_scan=datetime.utcnow(),
                 )

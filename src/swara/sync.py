@@ -27,6 +27,7 @@ from swara.models import (
     Embedding,
     ExcludePlaylist,
     ExcludeTrack,
+    User,
 )
 
 RAW = (
@@ -62,31 +63,39 @@ def _playlist_tracks(sp, pid: str) -> Iterable[dict]:
 # Provider snapshot – returns richer structures to detect renames
 # ---------------------------------------------------------------------------
 
-def provider_snapshot() -> tuple[Mapping[str, str], Mapping[str, dict], Set[str]]:
+def provider_snapshot() -> tuple[dict[str, str], dict[str, dict], set[str], dict[str, str]]:
     """
-    Return ({playlist_id: name}, {track_id: track_obj}, {track_ids})
-    Only playlists NOT excluded are processed.
+    Returns:
+      - playlist_map: {playlist_id: name}
+      - track_info: {track_id: track_obj}
+      - live_tids: set of track ids
+      - playlist_owners: {playlist_id: owner_id}
     """
     sp = get_client("spotify", scopes=["playlist-read-private"])
 
-    # Fetch excluded playlists from the DB (need a session here)
+    # Excluded playlists
     from swara.db import get_session
     from swara.models import ExcludePlaylist
     with get_session() as ses:
         excluded_playlist_ids = set(ses.exec(select(ExcludePlaylist.id)).scalars())
 
     playlist_map: dict[str, str] = {}
+    playlist_owners: dict[str, str] = {}    # <--- new
     track_info: dict[str, dict] = {}
 
+    owners = {}
     for pl in _fetch_all_playlists(sp):
         pid = pl["id"]
+        owner = pl["owner"]
+        owners[owner["id"]] = owner.get("display_name") or owner["id"]
         if pid in excluded_playlist_ids:
             continue  # SKIP this playlist
         playlist_map[pid] = pl["name"]
+        playlist_owners[pid] = pl["owner"]["id"]   # <--- new
         for t in _playlist_tracks(sp, pid):
             if t and t.get("id"):
                 track_info[t["id"]] = t
-    return playlist_map, track_info, set(track_info)
+    return playlist_map, track_info, set(track_info), playlist_owners, owners
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Main sync routine
@@ -96,10 +105,19 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
     """Synchronise Postgres DB with live Spotify data and optionally the MP3 store."""
 
     # CHANGED: Provider snapshot now returns playlist_map, track_info, live_tids
-    live_playlists, track_info, live_tids = provider_snapshot()  # <-- changed
+    live_playlists, track_info, live_tids, playlist_owners, owners = provider_snapshot()
     live_plids = set(live_playlists)
 
     with get_session() as ses:  # transactional scope
+        if owners:
+            ses.execute(
+                pg_insert(User)
+                .values([{"id": oid, "display_name": name} for oid, name in owners.items()])
+                .on_conflict_do_update(
+                    index_elements=[User.id],
+                    set_={"display_name": pg_insert(User).excluded.display_name}
+                )
+            )
         # ── cache current DB state ───────────────────────────────────────
         db_plids = set(ses.exec(select(Playlist.id)).scalars())
         db_tids = set(ses.exec(select(Track.id)).scalars())
@@ -113,7 +131,12 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         if new_pl:
             ses.execute(
                 pg_insert(Playlist).values([
-                    {"id": pid, "name": live_playlists[pid]} for pid in new_pl
+                    {
+                        "id": pid,
+                        "name": live_playlists[pid],
+                        "owner_id": playlist_owners[pid],  # <--- set owner_id!
+                    }
+                    for pid in new_pl
                 ]).on_conflict_do_nothing()
             )
 
@@ -146,7 +169,12 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
             }
             for pid, new_name in renamed.items():
                 ses.exec(
-                    update(Playlist).where(Playlist.id == pid).values(name=new_name)
+                    update(Playlist)
+                    .where(Playlist.id == pid)
+                    .values(
+                        name=new_name,
+                        owner_id=playlist_owners[pid],  # always refresh owner_id
+                    )
                 )
 
         # 3. Delete items gone from Spotify -------------------------------
