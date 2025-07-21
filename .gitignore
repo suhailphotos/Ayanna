@@ -39,7 +39,7 @@ MANIFEST
 # ml data
 data/
 
-
+.backup/
 docker/creds_config.json
 
 # Installer logs
