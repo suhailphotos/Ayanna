@@ -262,6 +262,29 @@ def sync(remove_files, prune):
     report = sync_db(remove_files=remove_files, prune=prune)
     click.echo(report)
 
+@db_group.command("excludeplaylist")
+@click.option("--add", "add_ids", multiple=True, help="Playlist ID(s) to add to exclusions")
+@click.option("--remove", "remove_ids", multiple=True, help="Playlist ID(s) to remove from exclusions")
+def excludeplaylist(add_ids, remove_ids):
+    from swara.models import ExcludePlaylist
+    from sqlalchemy import delete
+    changed = False
+    with get_session() as ses:
+        # Add new exclusions
+        for pid in add_ids:
+            ses.merge(ExcludePlaylist(id=pid))
+            click.secho(f"✓ Added {pid} to ExcludePlaylist", fg="green")
+            changed = True
+        # Remove exclusions
+        for pid in remove_ids:
+            ses.exec(delete(ExcludePlaylist).where(ExcludePlaylist.id == pid))
+            click.secho(f"✓ Removed {pid} from ExcludePlaylist", fg="yellow")
+            changed = True
+        if changed:
+            ses.commit()
+        else:
+            click.echo("No changes requested.")
+
 @cli.command(help="Remove audio files whose track is no longer in the DB")
 @click.option("--yes", is_flag=True, help="Do not ask for confirmation")
 def prune(yes):

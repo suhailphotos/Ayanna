@@ -124,6 +124,10 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         exc_pl = set(ses.exec(select(ExcludePlaylist.id)).scalars())
         exc_tr = set(ses.exec(select(ExcludeTrack.id)).scalars())
 
+        # New: always remove playlists in ExcludePlaylist from DB
+        if exc_pl:
+            ses.exec(delete(Playlist).where(Playlist.id.in_(exc_pl)))
+
         # 1. Insert NEW playlists / tracks --------------------------------
         new_pl = live_plids - db_plids - exc_pl
         new_tr = live_tids - db_tids - exc_tr
@@ -180,6 +184,8 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         # 3. Delete items gone from Spotify -------------------------------
         gone_pl = db_plids - live_plids - exc_pl
         gone_tr = db_tids - live_tids - exc_tr
+        # For summary:
+        removed_pl = db_plids - live_plids
 
         if gone_tr:
             ses.exec(delete(Embedding).where(Embedding.track_id.in_(gone_tr)))
@@ -204,7 +210,7 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
     return _summary(
         len(new_pl),
         len(new_tr),
-        len(gone_pl),
+        len(removed_pl),
         len(gone_tr),
         remove_files and bool(gone_tr),
         n_orphan,
