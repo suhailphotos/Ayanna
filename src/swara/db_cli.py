@@ -1,10 +1,10 @@
-# scripts/manage_db.py
+# src/swara/db_cli.py
 import os, sys, json, shutil
 import pydoc
 from pathlib import Path
 from wcwidth import wcswidth
 from dotenv import load_dotenv
-from sqlalchemy import text, make_url
+from sqlalchemy import text, make_url, delete
 from sqlmodel import SQLModel, select
 
 load_dotenv(dotenv_path=Path(os.environ["PROJECT_ROOT"]) / ".env")
@@ -35,8 +35,23 @@ def import_exclusions(json_path):
     with get_session() as ses:
         for rec in data.get("playlists", []):
             ses.merge(ExcludePlaylist(id=rec["id"], reason="json-import"))
+        for t in data.get("tracks", []):
+            # If you want to save the reason, pull from the JSON; otherwise default
+            track_id = t["id"] if isinstance(t, dict) else t
+            reason = t.get("reason", "json-import") if isinstance(t, dict) else "json-import"
+            ses.merge(ExcludeTrack(id=track_id, reason=reason))
         ses.commit()
-    print(f"Imported {len(data.get('playlists', []))} excluded playlists.")
+        excluded_track_ids = [t["id"] if isinstance(t, dict) else t for t in data.get("tracks", [])]
+        if excluded_track_ids:
+            ses.exec(delete(Embedding).where(Embedding.track_id.in_(excluded_track_ids)))
+            ses.exec(delete(Track).where(Track.id.in_(excluded_track_ids)))
+            ses.commit()
+        # Same for playlists if you want
+        excluded_playlist_ids = [p["id"] for p in data.get("playlists", [])]
+        if excluded_playlist_ids:
+            ses.exec(delete(Playlist).where(Playlist.id.in_(excluded_playlist_ids)))
+            ses.commit()
+    print(f"Imported {len(data.get('playlists', []))} excluded playlists and {len(data.get('tracks', []))} excluded tracks.")
 
 def ls(table=None, filter_expr=None, full=False, head=False, head_n=20, truncate_len=32):
     """List contents of one or all tables (pretty, paged by default)."""

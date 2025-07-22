@@ -124,6 +124,11 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
         exc_pl = set(ses.exec(select(ExcludePlaylist.id)).scalars())
         exc_tr = set(ses.exec(select(ExcludeTrack.id)).scalars())
 
+        # Remove excluded tracks (and optionally their embeddings) from the DB
+        if exc_tr:
+            ses.exec(delete(Embedding).where(Embedding.track_id.in_(exc_tr)))
+            ses.exec(delete(Track).where(Track.id.in_(exc_tr)))
+
         # New: always remove playlists in ExcludePlaylist from DB
         if exc_pl:
             ses.exec(delete(Playlist).where(Playlist.id.in_(exc_pl)))
