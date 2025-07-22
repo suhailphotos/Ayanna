@@ -161,6 +161,55 @@ def sync_db(*, remove_files: bool = False, prune: bool = False) -> str:
             ses.execute(
                 pg_insert(Track).values(rows).on_conflict_do_nothing()
             )
+        incomplete = ses.exec(
+            select(Track).where(
+                (Track.title == "") |
+                (Track.title == "(unknown)") |
+                (Track.title == None) |
+                (Track.artist == "") |
+                (Track.artist == "(unknown)") |
+                (Track.artist == None) |
+                (Track.album == None) |
+                (Track.duration_ms == None)
+            )
+        ).scalars().all()
+        n_patched = 0
+        for t in incomplete:
+            if isinstance(t, Track):
+                track = t
+            else:
+                track = t[0]
+            tinfo = track_info.get(track.id)
+            if not tinfo:
+                continue
+            vals = {}
+            if not t.title:
+                vals["title"] = tinfo.get("name") or "(unknown)"
+            if not t.artist:
+                vals["artist"] = ", ".join(a.get("name", "?") for a in tinfo.get("artists", [])) or "(unknown)"
+            if t.album is None:
+                vals["album"] = tinfo.get("album", {}).get("name") if tinfo.get("album") else None
+            if t.duration_ms is None:
+                vals["duration_ms"] = tinfo.get("duration_ms")
+            if vals:
+                ses.exec(update(Track).where(Track.id == t.id).values(**vals))
+                n_patched += 1
+        if n_patched:
+            print(f"✓ Patched {n_patched} track(s) with missing metadata from Spotify")
+
+        # Remove permanently unhealable tracks
+        unhealable = ses.exec(
+            select(Track.id).where(
+                ((Track.title == "(unknown)") | (Track.artist == "(unknown)")) &
+                (Track.download_status == "failed")
+            )
+        ).scalars().all()
+        
+        if unhealable:
+            ses.exec(delete(Track).where(Track.id.in_(unhealable)))
+            ses.commit()
+            print(f"✗ Deleted {len(unhealable)} tracks still marked as '(unknown)' (not found on Spotify)")
+
         # END CHANGED
 
         # 2. Detect playlist RENAMES --------------------------------------
