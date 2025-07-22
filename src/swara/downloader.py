@@ -179,11 +179,25 @@ def main(*, dry_run: bool = False, verbose: bool = False, clear_cache: bool = Fa
     click.echo(f"  • discovered {len(new_tracks)} new tracks")
     click.echo(f"  • updated play_count on {len(track_counts)} tracks")
 
-    # ── pending queue ────────────────────────────────────────────── #
+    # ── Sync DB with file-system before pending list ─────────────── #
     with get_session() as ses:
-        pending = ses.exec(
-            select(Track).where(Track.download_status == "pending")
+        tracks = ses.exec(
+            select(Track)
+            .where(Track.download_status.in_(["pending", "failed"]))
         ).all()
+        for t in tracks:
+            if t.audio_path and Path(t.audio_path).exists():
+                ses.exec(
+                    update(Track)
+                    .where(Track.id == t.id)
+                    .values(download_status="success", download_error=None)
+                )
+        ses.commit()
+        # Build pending list only for tracks without file
+        pending = [
+            t for t in tracks
+            if not t.audio_path or not Path(t.audio_path).exists()
+        ]
 
     if not pending:
         click.secho("Nothing to download – library up-to-date.", fg="green")

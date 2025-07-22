@@ -203,6 +203,38 @@
       "album": "Folding Leaves",
       "duration_ms": 350526,
       "reason": "download failed"
+    },
+    {
+      "id": "6nZiYSBwPQ7fYnVWkkkj4g",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "duration_ms": 0,
+      "reason": "No longer available on Spotify"
+    },
+    {
+      "id": "2n4xNuBN2LVQs6V6Y02kUC",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "duration_ms": 0,
+      "reason": "No longer available on Spotify"
+    },
+    {
+      "id": "2QeyvnfN33p6Iu7YosY4Ls",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "duration_ms": 0,
+      "reason": "No longer available on Spotify"
+    },
+    {
+      "id": "3Kpz1I7PzvFGZ4mAA5WDSY",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "duration_ms": 0,
+      "reason": "No longer available on Spotify"
     }
   ]
 }
