@@ -539,6 +539,66 @@ wrapt = ">=1.10,<2"
 dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "setuptools ; python_version >= \"3.12\"", "tox"]
 
 [[package]]
+name = "essentia"
+version = "2.1b6.dev1389"
+description = "Library for audio and music analysis, description and synthesis"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "essentia-2.1b6.dev1389-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:935e591d658ee76d6149df7218f424c04627f6c5feca019b077ad80993591190"},
+    {file = "essentia-2.1b6.dev1389-cp310-cp310-macosx_15_0_arm64.whl", hash = "sha256:333ab67ee7154548931e81a5edd7324946d8d5aa89baa17fcc7b9f4328a72215"},
+    {file = "essentia-2.1b6.dev1389-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2fd106f4f7c2628891cdc7c84f48e36148f24019462781885d8e75d2cb383a38"},
+    {file = "essentia-2.1b6.dev1389-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:b2f88f724325200b38da3f2e9eee083ee954d08f700f5ec0a436686e11b8f8da"},
+    {file = "essentia-2.1b6.dev1389-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:819c52ae8964e8ebd63942679908a810a88e97657075a7aeb428ebb422a80340"},
+    {file = "essentia-2.1b6.dev1389-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:59925891f222f8c68575e84f4109973084db2a2df0ab7a73d69c3f592fc45971"},
+    {file = "essentia-2.1b6.dev1389-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:9552bb8e4ff79135cd361a680e10fa8e6d1ef3571b8fc1d9f1314c9d8cf50b5a"},
+    {file = "essentia-2.1b6.dev1389-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:ca58a269185c49da232e5f4c177b566f7d248c57b113dd355af778ac0b132e6e"},
+    {file = "essentia-2.1b6.dev1389-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5905c38da25d8ccf4259bd045e50242103a47f482b77559ec6899d4b463ca4e7"},
+    {file = "essentia-2.1b6.dev1389-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:cf6a7fd7965f47d14acbd444fb93650ff116f0b28750f9a1a6aa8a551b8538e7"},
+    {file = "essentia-2.1b6.dev1389-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:84e5167b95d9e74b2ddd928555d5a1e11997a458dae25e653544a953bc3068b9"},
+    {file = "essentia-2.1b6.dev1389-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:40815e145dc8841d464fc1af935ef7e6ff1d310ef8169019e8cf22c7670c8830"},
+    {file = "essentia-2.1b6.dev1389-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:f224a8c04d02ee99da638da2e0f79a265049994b5b12915d4dace29b9814d5f0"},
+    {file = "essentia-2.1b6.dev1389-cp39-cp39-macosx_15_0_arm64.whl", hash = "sha256:d73990e19431aea2253576987ed5eb4961d9266b6b73e06d8c0138a14b588ffa"},
+    {file = "essentia-2.1b6.dev1389-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:76443c9cb59532a38ce31c371dc911e5a66996578f517d8a9d95aee44071961a"},
+]
+
+[package.dependencies]
+numpy = ">=1.25"
+pyyaml = "*"
+six = "*"
+
+[[package]]
+name = "essentia-tensorflow"
+version = "2.1b6.dev1389"
+description = "Library for audio and music analysis, description and synthesis, with TensorFlow support"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp310-cp310-macosx_14_0_x86_64.whl", hash = "sha256:5b41ef13e43d3a8ea2874cedebb1acdaa56628b5a8454e233df3f9c37f1bb48e"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp310-cp310-macosx_15_0_arm64.whl", hash = "sha256:77ba35f39a53c0b3e92e3f10eebb5f619fe3f1a75edf750d276a2429dc36a738"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f9d1c1ee7f785c8fce294a1fd10ac4392b97ad01e2ad3142ba1e524c3420abc4"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp311-cp311-macosx_14_0_x86_64.whl", hash = "sha256:4d701d7eb8de4b385087d10b04b63348516c82943cf027de3aea8d173a6e615f"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:b429d40fadb78ee4340cf1649a67c3fb1da45e46731e15299b7f15d58979c608"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:72d2d8d748e916df931fa561f284d9a47ad0f557351acfbdc952d4b4118c01b8"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp312-cp312-macosx_14_0_x86_64.whl", hash = "sha256:4d5e111d01e69a06f2cc797871c7979ac09f14ef3ae04bccf87dc9a6618fa957"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:1a9740b3edea4259e362c0718f102113b36e9034b2db5caa874c4b4a0395f785"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6812425191f47ac7a5c566484f86a67890d581977e4969d1af83dc2dbc1f56ee"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp313-cp313-macosx_14_0_x86_64.whl", hash = "sha256:860676d7b05a9725fbd7a7bdd8fe7dc98051a6b057c6cbe11ed6cf521e4ead16"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:2a172f9eaf49a034e508ffc76d64c18f34e3a88944d721e8b00f7c1f56d89bd5"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6533aeeb16daf1c845f5becc2f7b1271f867c02899baafabb3f56a1aa4ce4a64"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp39-cp39-macosx_14_0_x86_64.whl", hash = "sha256:2b86cf22ef1c388bb7c50a6e8edaeef3c787f3e299758947662338f036357fad"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp39-cp39-macosx_15_0_arm64.whl", hash = "sha256:f8a87edc4883172c66590854290dfd6a1f1a478ea01f014d6a4d0fe3d14d904e"},
+    {file = "essentia_tensorflow-2.1b6.dev1389-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9dc799cc7d3c2368166edbfa8bc61feca7893711cbddeba21be15e4bfca95913"},
+]
+
+[package.dependencies]
+numpy = ">=1.25"
+pyyaml = "*"
+six = "*"
+
+[[package]]
 name = "faiss-cpu"
 version = "1.11.0"
 description = "A library for efficient similarity search and clustering of dense vectors."
@@ -4281,4 +4341,4 @@ requests = ">=2.22"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "c3d37b55c9272783099c1eaddf1c171bafaf80feeb44d8320aec73a269db9506"
+content-hash = "653435b75046c9c3bbfee033892838777ab17b2341e474b589bcac978ecf8640"

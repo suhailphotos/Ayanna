@@ -285,6 +285,29 @@ def excludeplaylist(add_ids, remove_ids):
         else:
             click.echo("No changes requested.")
 
+@db_group.command("excludetrack")
+@click.option("--add", "add_ids", multiple=True, help="Track ID(s) to add to exclusions")
+@click.option("--remove", "remove_ids", multiple=True, help="Track ID(s) to remove from exclusions")
+def excludetrack(add_ids, remove_ids):
+    from swara.models import ExcludeTrack
+    from sqlalchemy import delete
+    changed = False
+    with get_session() as ses:
+        # Add new exclusions
+        for tid in add_ids:
+            ses.merge(ExcludeTrack(id=tid))
+            click.secho(f"✓ Added {tid} to ExcludeTrack", fg="green")
+            changed = True
+        # Remove exclusions
+        for tid in remove_ids:
+            ses.exec(delete(ExcludeTrack).where(ExcludeTrack.id == tid))
+            click.secho(f"✓ Removed {tid} from ExcludeTrack", fg="yellow")
+            changed = True
+        if changed:
+            ses.commit()
+        else:
+            click.echo("No changes requested.")
+
 @cli.command(help="Remove audio files whose track is no longer in the DB")
 @click.option("--yes", is_flag=True, help="Do not ask for confirmation")
 def prune(yes):

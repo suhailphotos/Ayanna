@@ -28,6 +28,8 @@ faiss-cpu  = "^1.7"          # dev-time vector search
 wcwidth = "^0.2.13"
 ujson = "^5.10.0"
 psycopg = {version = ">=3.1,<3.2", extras = ["binary"]}
+essentia = "^2.1b6.dev1389"
+essentia-tensorflow = "^2.1b6.dev1389"
 
 [tool.poetry.scripts]
 swara = "swara.cli:cli"
